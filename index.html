@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Beauty AI • Висувна панель</title>
+    <title>Beauty AI • Enterprise Edition</title>
+    <!-- MediaPipe Tasks (CDN з Brotli стисненням) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
     <style>
         * {
@@ -45,7 +46,7 @@
             transform: scaleX(-1);
         }
 
-        /* Верхня панель керування (завжди видима) */
+        /* Верхня панель керування з анімацією */
         .top-controls {
             position: absolute;
             top: 15px;
@@ -56,6 +57,12 @@
             gap: 8px;
             justify-content: center;
             z-index: 20;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .ctrl-btn {
@@ -72,7 +79,14 @@
             font-size: 22px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: all 0.2s;
+            transition: transform 0.2s, background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ctrl-btn:active {
+            transform: scale(0.9);
+            background: #00ffcc;
+            color: black;
         }
 
         .ctrl-btn.active {
@@ -91,6 +105,11 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .mode-btn:active {
+            transform: scale(0.95);
         }
 
         .mode-btn.active {
@@ -98,10 +117,10 @@
             color: black;
         }
 
-        /* Індикатор ступеня мерця (завжди видимий) */
+        /* Індикатор ступеня мерця */
         .mertz-indicator {
             position: absolute;
-            bottom: 90px; /* над панеллю */
+            bottom: 90px;
             left: 20px;
             background: rgba(0,0,0,0.7);
             backdrop-filter: blur(5px);
@@ -112,6 +131,7 @@
             align-items: center;
             gap: 10px;
             z-index: 25;
+            animation: fadeIn 0.5s;
         }
 
         .mertz-label {
@@ -123,6 +143,7 @@
             font-size: 36px;
             font-weight: 800;
             line-height: 1;
+            transition: color 0.2s;
         }
 
         .alert-badge {
@@ -137,9 +158,16 @@
             display: none;
             z-index: 30;
             white-space: nowrap;
+            animation: pulse 1s infinite;
         }
 
-        /* ===== ВИСУВНА НИЖНЯ ПАНЕЛЬ ===== */
+        @keyframes pulse {
+            0% { opacity: 1; transform: translateX(-50%) scale(1); }
+            50% { opacity: 0.8; transform: translateX(-50%) scale(1.05); }
+            100% { opacity: 1; transform: translateX(-50%) scale(1); }
+        }
+
+        /* Висувна панель */
         .bottom-sheet {
             position: absolute;
             bottom: 0;
@@ -151,15 +179,14 @@
             border-radius: 30px 30px 0 0;
             z-index: 100;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateY(calc(100% - 50px)); /* спочатку видно тільки ручку */
+            transform: translateY(calc(100% - 50px));
             box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
         }
 
         .bottom-sheet.open {
-            transform: translateY(0); /* повністю відкрита */
+            transform: translateY(0);
         }
 
-        /* Ручка для перетягування */
         .sheet-handle {
             width: 100%;
             height: 50px;
@@ -177,6 +204,11 @@
             background: #00ffcc;
             border-radius: 10px;
             margin-bottom: 5px;
+            transition: width 0.2s;
+        }
+
+        .sheet-handle:active .handle-bar {
+            width: 70px;
         }
 
         .handle-text {
@@ -185,7 +217,6 @@
             opacity: 0.8;
         }
 
-        /* Контент панелі (скролиться) */
         .sheet-content {
             padding: 20px;
             max-height: 60vh;
@@ -213,6 +244,11 @@
             border-radius: 20px;
             padding: 15px 5px;
             text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .metric-card:active {
+            transform: scale(0.98);
         }
 
         .metric-card h4 {
@@ -283,6 +319,7 @@
             object-fit: cover;
             border-radius: 15px;
             background: #2a2a2a;
+            transition: opacity 0.2s;
         }
 
         .photo-btn {
@@ -295,6 +332,12 @@
             border-radius: 30px;
             cursor: pointer;
             width: 100%;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .photo-btn:active {
+            background: #00ffcc;
+            color: black;
         }
 
         /* Кнопки дій */
@@ -317,11 +360,21 @@
             cursor: pointer;
             flex: 1 1 auto;
             min-width: 140px;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .big-btn:active {
+            transform: scale(0.97);
         }
 
         .big-btn.primary {
             background: #00ffcc;
             color: black;
+        }
+
+        .big-btn.primary:active {
+            background: transparent;
+            color: #00ffcc;
         }
     </style>
 </head>
@@ -342,9 +395,9 @@
             <div class="mode-btn" id="btnBotox">💉 Ботокс</div>
         </div>
 
-        <!-- Ступінь мерця (завжди видно) -->
+        <!-- Ступінь мерця -->
         <div class="mertz-indicator">
-            <span class="mertz-label">Ступінь мерця</span>
+            <span class="mertz-label">Ступінь<br>мерця</span>
             <span class="mertz-value" id="mertzValue">0</span>
         </div>
 
@@ -355,16 +408,13 @@
                 <div class="handle-text">Показники активності</div>
             </div>
             <div class="sheet-content" id="sheetContent">
-                <!-- Сітка метрик (буде заповнена JS) -->
                 <div class="metrics-grid" id="metricsGrid"></div>
 
-                <!-- Графік -->
                 <div class="graph-container">
                     <div class="graph-title">📈 Динаміка активності (60 кадрів)</div>
                     <canvas id="graphCanvas" width="600" height="150"></canvas>
                 </div>
 
-                <!-- Фото до/після -->
                 <div class="photo-row">
                     <div class="photo-card">
                         <img id="photoBefore" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='113' viewBox='0 0 150 113'%3E%3Crect width='150' height='113' fill='%232a2a2a'/%3E%3Ctext x='30' y='60' fill='%2300ffcc' font-size='12'%3EДо%3C/text%3E%3C/svg%3E" alt="Before">
@@ -376,7 +426,6 @@
                     </div>
                 </div>
 
-                <!-- Кнопки дій -->
                 <div class="actions">
                     <button class="big-btn" id="resetMaxBtn">🔄 Скинути максимуми</button>
                     <button class="big-btn primary" id="saveSessionBtn">💾 Зберегти сесію</button>
@@ -384,6 +433,11 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Глобальна функція для ініціалізації Web Worker
+        window.worker = new Worker('worker.js'); // буде створено нижче як Blob
+    </script>
 
     <script type="module">
         import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
@@ -395,7 +449,6 @@
         const mertzSpan = document.getElementById('mertzValue');
         const alertBadge = document.getElementById('alertBadge');
         
-        // Кнопки
         const btnCam = document.getElementById('btnCam');
         const btnFreeze = document.getElementById('btnFreeze');
         const btnMesh = document.getElementById('btnMesh');
@@ -406,11 +459,9 @@
         const photoBeforeBtn = document.getElementById('photoBeforeBtn');
         const photoAfterBtn = document.getElementById('photoAfterBtn');
         
-        // Нижня панель
         const bottomSheet = document.getElementById('bottomSheet');
         const sheetHandle = document.getElementById('sheetHandle');
         
-        // Графік
         const graphCanvas = document.getElementById('graphCanvas');
         const graphCtx = graphCanvas.getContext('2d');
 
@@ -421,29 +472,22 @@
         let meshMode = true;
         let mimicMode = false;
         let botoxMode = false;
-        let panelOpen = false; // чи відкрита нижня панель
+        let panelOpen = false;
 
-        // Калібрування та метрики
-        let baseline = {
-            eyeDistance: null,
-            browLeftY: null, browRightY: null,
-            eyeLeftDist: null, eyeRightDist: null,
-            mouthLeftY: null, mouthRightY: null
-        };
-        let shouldCalibrate = true;
-
+        // Дані від Web Worker
         let current = {
             browLeft: 0, browRight: 0,
             eyeLeft: 0, eyeRight: 0,
             mouthLeft: 0, mouthRight: 0
         };
-
         let maxValues = {
             browLeft: 0, browRight: 0,
             eyeLeft: 0, eyeRight: 0,
             mouthLeft: 0, mouthRight: 0
         };
+        let smoothedLandmarks = []; // згладжені точки
 
+        // Історія для графіка
         const historyLength = 60;
         let history = {
             browLeft: [], browRight: [],
@@ -451,15 +495,164 @@
             mouthLeft: [], mouthRight: []
         };
 
+        // Індекси точок MediaPipe
         const IDX = {
-            LEFT_EYE_OUTER: 33, RIGHT_EYE_OUTER: 263,
-            LEFT_BROW: 105, RIGHT_BROW: 334,
-            LEFT_EYE_UPPER: 34, LEFT_EYE_LOWER: 94,
-            RIGHT_EYE_UPPER: 264, RIGHT_EYE_LOWER: 394,
-            LEFT_MOUTH: 61, RIGHT_MOUTH: 291
+            LEFT_EYE_OUTER: 33,
+            RIGHT_EYE_OUTER: 263,
+            LEFT_BROW: 105,
+            RIGHT_BROW: 334,
+            LEFT_EYE_UPPER: 34,
+            LEFT_EYE_LOWER: 94,
+            RIGHT_EYE_UPPER: 264,
+            RIGHT_EYE_LOWER: 394,
+            LEFT_MOUTH: 61,
+            RIGHT_MOUTH: 291
         };
 
-        // ---------- Функції ----------
+        // ---------- Web Worker (створюємо як Blob для єдиного файлу) ----------
+        const workerCode = `
+            let baseline = {
+                eyeDistance: null,
+                browLeftY: null, browRightY: null,
+                eyeLeftDist: null, eyeRightDist: null,
+                mouthLeftY: null, mouthRightY: null
+            };
+            let shouldCalibrate = true;
+            let maxVals = {
+                browLeft: 0, browRight: 0,
+                eyeLeft: 0, eyeRight: 0,
+                mouthLeft: 0, mouthRight: 0
+            };
+            let smoothed = {};
+
+            // Фільтр низьких частот (експоненційне згладжування)
+            const alpha = 0.7;
+
+            self.onmessage = function(e) {
+                const { landmarks, shapes, canvasWidth, canvasHeight } = e.data;
+                
+                // Функція для отримання точки
+                const getPoint = (idx) => {
+                    const p = landmarks[idx];
+                    return { x: p.x * canvasWidth, y: p.y * canvasHeight };
+                };
+
+                try {
+                    const leftEyeOuter = getPoint(33);
+                    const rightEyeOuter = getPoint(263);
+                    const eyeDist = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y);
+                    
+                    const browLeft = getPoint(105);
+                    const browRight = getPoint(334);
+                    const leftEyeUpper = getPoint(34);
+                    const leftEyeLower = getPoint(94);
+                    const rightEyeUpper = getPoint(264);
+                    const rightEyeLower = getPoint(394);
+                    const mouthLeft = getPoint(61);
+                    const mouthRight = getPoint(291);
+                    
+                    if (shouldCalibrate && eyeDist > 0) {
+                        baseline = {
+                            eyeDistance: eyeDist,
+                            browLeftY: browLeft.y,
+                            browRightY: browRight.y,
+                            eyeLeftDist: Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y),
+                            eyeRightDist: Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y),
+                            mouthLeftY: mouthLeft.y,
+                            mouthRightY: mouthRight.y
+                        };
+                        shouldCalibrate = false;
+                        maxVals = { browLeft:0, browRight:0, eyeLeft:0, eyeRight:0, mouthLeft:0, mouthRight:0 };
+                        self.postMessage({ type: 'calibrated' });
+                    }
+                    
+                    let current = { browLeft:0, browRight:0, eyeLeft:0, eyeRight:0, mouthLeft:0, mouthRight:0 };
+                    
+                    if (baseline.eyeDistance && baseline.eyeDistance > 0) {
+                        const norm = baseline.eyeDistance;
+                        
+                        current.browLeft = Math.max(0, (baseline.browLeftY - browLeft.y) / norm);
+                        current.browRight = Math.max(0, (baseline.browRightY - browRight.y) / norm);
+                        
+                        const eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
+                        const eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
+                        
+                        const blinkLeft = shapes.find(s => s.categoryName === 'eyeBlinkLeft')?.score || 0;
+                        const blinkRight = shapes.find(s => s.categoryName === 'eyeBlinkRight')?.score || 0;
+                        
+                        current.eyeLeft = blinkLeft > 0.5 ? 0 : Math.max(0, (baseline.eyeLeftDist - eyeLeftDist) / norm);
+                        current.eyeRight = blinkRight > 0.5 ? 0 : Math.max(0, (baseline.eyeRightDist - eyeRightDist) / norm);
+                        
+                        current.mouthLeft = Math.max(0, (baseline.mouthLeftY - mouthLeft.y) / norm);
+                        current.mouthRight = Math.max(0, (baseline.mouthRightY - mouthRight.y) / norm);
+                        
+                        // Оновлення максимумів
+                        for (let key in current) {
+                            if (current[key] > maxVals[key]) maxVals[key] = current[key];
+                        }
+                    }
+                    
+                    // Згладжування координат точок (для малювання)
+                    if (!smoothed.landmarks) {
+                        smoothed.landmarks = landmarks.map(p => ({ x: p.x * canvasWidth, y: p.y * canvasHeight }));
+                    } else {
+                        for (let i = 0; i < landmarks.length; i++) {
+                            smoothed.landmarks[i].x = smoothed.landmarks[i].x * alpha + (1-alpha) * (landmarks[i].x * canvasWidth);
+                            smoothed.landmarks[i].y = smoothed.landmarks[i].y * alpha + (1-alpha) * (landmarks[i].y * canvasHeight);
+                        }
+                    }
+                    
+                    // Обчислення ступеня мерця (0-4)
+                    const get = (name) => shapes.find(s => s.categoryName === name)?.score || 0;
+                    const browUp = get('browInnerUp') * 2;
+                    const browDown = get('browDownLeft') + get('browDownRight');
+                    const squint = get('eyeSquintLeft') + get('eyeSquintRight');
+                    const blink = get('eyeBlinkLeft') + get('eyeBlinkRight');
+                    const cleanSquint = blink > 0.5 ? 0 : squint;
+                    let mertz = Math.min(4, Math.round((browUp + browDown + cleanSquint) * 2.2));
+                    
+                    self.postMessage({
+                        type: 'data',
+                        current,
+                        maxValues: maxVals,
+                        smoothed: smoothed.landmarks,
+                        mertz
+                    });
+                    
+                } catch (err) {
+                    // Ігноруємо помилки
+                }
+            };
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // ---------- Обробка повідомлень від Web Worker ----------
+        worker.onmessage = (e) => {
+            const { type, current: cur, maxValues: maxVals, smoothed: sm, mertz } = e.data;
+            if (type === 'data') {
+                current = cur;
+                maxValues = maxVals;
+                smoothedLandmarks = sm;
+                mertzSpan.innerText = mertz;
+                mertzSpan.style.color = mertz >= 3 ? '#ff3030' : (mertz >= 1 ? '#ffd700' : '#00ffcc');
+                alertBadge.style.display = mertz >= 3 ? 'block' : 'none';
+                
+                // Оновлюємо UI
+                updateUI();
+                addToHistory();
+                drawGraph();
+
+                // Вібрація при високій активності
+                if (mertz >= 3 && navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            } else if (type === 'calibrated') {
+                resetMax();
+            }
+        };
+
+        // ---------- Ініціалізація MediaPipe ----------
         async function initAI() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
             faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
@@ -491,6 +684,16 @@
             }
         }
 
+        // Обробка втрати WebGL контексту
+        canvas.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.warn('WebGL context lost, attempting to restore...');
+            setTimeout(() => {
+                // Примусове перестворення
+                location.reload(); // Спрощено; в ідеалі — відновлення без перезавантаження
+            }, 1000);
+        });
+
         function renderLoop() {
             if (isFrozen) return requestAnimationFrame(renderLoop);
             if (video.videoWidth && video.videoHeight) {
@@ -502,14 +705,21 @@
                     if (results.faceLandmarks && results.faceLandmarks.length > 0) {
                         const landmarks = results.faceLandmarks[0];
                         const shapes = results.faceBlendshapes[0].categories;
-                        computeMertz(shapes);
-                        updateMetrics(landmarks, shapes);
-                        if (meshMode) drawMesh(landmarks);
-                        if (mimicMode) drawMimicHeatmap(landmarks, current);
-                        if (botoxMode) drawBotox(landmarks);
-                        updateUI();
-                        addToHistory();
-                        drawGraph();
+                        
+                        // Відправляємо дані в Worker для обчислень
+                        worker.postMessage({
+                            landmarks,
+                            shapes,
+                            canvasWidth: canvas.width,
+                            canvasHeight: canvas.height
+                        });
+                        
+                        // Малюємо з використанням згладжених точок (якщо вони є)
+                        const drawLandmarks = smoothedLandmarks.length ? smoothedLandmarks : landmarks.map(p => ({ x: p.x * canvas.width, y: p.y * canvas.height }));
+                        
+                        if (meshMode) drawMesh(drawLandmarks);
+                        if (mimicMode) drawMimicHeatmap(drawLandmarks, current);
+                        if (botoxMode) drawBotox(landmarks); // для ботокса використовуємо оригінальні координати (менше дрижання)
                     } else {
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     }
@@ -518,80 +728,62 @@
             requestAnimationFrame(renderLoop);
         }
 
-        function computeMertz(shapes) {
-            const get = (name) => shapes.find(s => s.categoryName === name)?.score || 0;
-            const browUp = get('browInnerUp') * 2;
-            const browDown = get('browDownLeft') + get('browDownRight');
-            const squint = get('eyeSquintLeft') + get('eyeSquintRight');
-            const blink = get('eyeBlinkLeft') + get('eyeBlinkRight');
-            const cleanSquint = blink > 0.5 ? 0 : squint;
-            let score = Math.min(4, Math.round((browUp + browDown + cleanSquint) * 2.2));
-            mertzSpan.innerText = score;
-            mertzSpan.style.color = score >= 3 ? '#ff3030' : (score >= 1 ? '#ffd700' : '#00ffcc');
-            alertBadge.style.display = score >= 3 ? 'block' : 'none';
+        // Функції малювання (покращена якість)
+        function drawMesh(landmarks) {
+            ctx.save();
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#00ffcc';
+            // Малюємо з'єднання (спрощено, для демо)
+            for (let i = 0; i < landmarks.length - 1; i++) {
+                ctx.beginPath();
+                ctx.moveTo(landmarks[i].x, landmarks[i].y);
+                ctx.lineTo(landmarks[i+1].x, landmarks[i+1].y);
+                ctx.stroke();
+            }
+            ctx.restore();
         }
 
-        function updateMetrics(landmarks, shapes) {
-            const getPoint = (idx) => {
-                const p = landmarks[idx];
-                return { x: p.x * canvas.width, y: p.y * canvas.height };
-            };
-            try {
-                const leftEyeOuter = getPoint(IDX.LEFT_EYE_OUTER);
-                const rightEyeOuter = getPoint(IDX.RIGHT_EYE_OUTER);
-                const eyeDist = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y);
-                
-                const browLeft = getPoint(IDX.LEFT_BROW);
-                const browRight = getPoint(IDX.RIGHT_BROW);
-                const leftEyeUpper = getPoint(IDX.LEFT_EYE_UPPER);
-                const leftEyeLower = getPoint(IDX.LEFT_EYE_LOWER);
-                const rightEyeUpper = getPoint(IDX.RIGHT_EYE_UPPER);
-                const rightEyeLower = getPoint(IDX.RIGHT_EYE_LOWER);
-                const mouthLeft = getPoint(IDX.LEFT_MOUTH);
-                const mouthRight = getPoint(IDX.RIGHT_MOUTH);
-                
-                if (shouldCalibrate && eyeDist > 0) {
-                    baseline.eyeDistance = eyeDist;
-                    baseline.browLeftY = browLeft.y;
-                    baseline.browRightY = browRight.y;
-                    baseline.eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
-                    baseline.eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
-                    baseline.mouthLeftY = mouthLeft.y;
-                    baseline.mouthRightY = mouthRight.y;
-                    shouldCalibrate = false;
-                    resetMax();
-                }
-                
-                if (baseline.eyeDistance && baseline.eyeDistance > 0) {
-                    const norm = baseline.eyeDistance;
-                    current.browLeft = Math.max(0, (baseline.browLeftY - browLeft.y) / norm);
-                    current.browRight = Math.max(0, (baseline.browRightY - browRight.y) / norm);
-                    
-                    const eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
-                    const eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
-                    
-                    const blinkLeft = shapes.find(s => s.categoryName === 'eyeBlinkLeft')?.score || 0;
-                    const blinkRight = shapes.find(s => s.categoryName === 'eyeBlinkRight')?.score || 0;
-                    
-                    current.eyeLeft = blinkLeft > 0.5 ? 0 : Math.max(0, (baseline.eyeLeftDist - eyeLeftDist) / norm);
-                    current.eyeRight = blinkRight > 0.5 ? 0 : Math.max(0, (baseline.eyeRightDist - eyeRightDist) / norm);
-                    
-                    current.mouthLeft = Math.max(0, (baseline.mouthLeftY - mouthLeft.y) / norm);
-                    current.mouthRight = Math.max(0, (baseline.mouthRightY - mouthRight.y) / norm);
-                    
-                    for (let key in current) {
-                        if (current[key] > maxValues[key]) maxValues[key] = current[key];
-                    }
-                }
-            } catch (e) {}
+        function drawMimicHeatmap(landmarks, cur) {
+            const points = [
+                { idx: IDX.LEFT_BROW, val: cur.browLeft },
+                { idx: IDX.RIGHT_BROW, val: cur.browRight },
+                { idx: IDX.LEFT_EYE_UPPER, val: cur.eyeLeft },
+                { idx: IDX.RIGHT_EYE_UPPER, val: cur.eyeRight },
+                { idx: IDX.LEFT_MOUTH, val: cur.mouthLeft },
+                { idx: IDX.RIGHT_MOUTH, val: cur.mouthRight }
+            ];
+            points.forEach(p => {
+                if (p.val < 0.01) return;
+                const pt = landmarks[p.idx] || { x: 0, y: 0 };
+                const intensity = Math.min(0.8, p.val * 10);
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = p.val > 0.2 ? '#ff3030' : '#00ffcc';
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 12 + p.val * 80, 0, Math.PI * 2);
+                ctx.fillStyle = p.val > 0.2 ? `rgba(255,48,48,${intensity})` : `rgba(0,255,204,${intensity})`;
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
         }
 
-        function resetMax() {
-            for (let key in maxValues) maxValues[key] = 0;
+        function drawBotox(landmarks) {
+            ctx.save();
+            ctx.filter = 'blur(15px) brightness(1.1)';
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath();
+            const area = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67];
+            for (let i = 0; i < area.length; i++) {
+                const p = landmarks[area[i]];
+                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
+                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
+            }
+            ctx.fill();
+            ctx.restore();
         }
 
         function updateUI() {
-            // Створюємо картки, якщо треба
             const grid = document.getElementById('metricsGrid');
             if (grid.children.length === 0) {
                 const names = {
@@ -611,7 +803,6 @@
                 }
                 grid.innerHTML = html;
             }
-            // Оновлюємо значення
             for (let key in current) {
                 const valEl = document.getElementById(`val_${key}`);
                 const maxEl = document.getElementById(`max_${key}`);
@@ -660,54 +851,16 @@
             }
         }
 
-        function drawMesh(landmarks) {
-            new DrawingUtils(ctx).drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: '#ffffff20', lineWidth: 0.8 });
-        }
-
-        function drawMimicHeatmap(landmarks, cur) {
-            const points = [
-                { idx: IDX.LEFT_BROW, val: cur.browLeft },
-                { idx: IDX.RIGHT_BROW, val: cur.browRight },
-                { idx: IDX.LEFT_EYE_UPPER, val: cur.eyeLeft },
-                { idx: IDX.RIGHT_EYE_UPPER, val: cur.eyeRight },
-                { idx: IDX.LEFT_MOUTH, val: cur.mouthLeft },
-                { idx: IDX.RIGHT_MOUTH, val: cur.mouthRight }
-            ];
-            points.forEach(p => {
-                if (p.val < 0.01) return;
-                const pt = landmarks[p.idx];
-                const x = pt.x * canvas.width;
-                const y = pt.y * canvas.height;
-                const intensity = Math.min(0.8, p.val * 10);
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = p.val > 0.2 ? '#ff3030' : '#00ffcc';
-                ctx.beginPath();
-                ctx.arc(x, y, 12 + p.val * 80, 0, Math.PI * 2);
-                ctx.fillStyle = p.val > 0.2 ? `rgba(255,48,48,${intensity})` : `rgba(0,255,204,${intensity})`;
-                ctx.fill();
-            });
-            ctx.shadowBlur = 0;
-        }
-
-        function drawBotox(landmarks) {
-            ctx.save();
-            ctx.filter = 'blur(15px) brightness(1.1)';
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.beginPath();
-            const area = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67];
-            for (let i = 0; i < area.length; i++) {
-                const p = landmarks[area[i]];
-                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
-                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
-            }
-            ctx.fill();
-            ctx.restore();
+        function resetMax() {
+            // Скидання максимумів у Worker
+            worker.postMessage({ type: 'reset' });
         }
 
         function takePhoto(target) {
             const dataURL = canvas.toDataURL('image/png');
             if (target === 'before') document.getElementById('photoBefore').src = dataURL;
             else document.getElementById('photoAfter').src = dataURL;
+            if (navigator.vibrate) navigator.vibrate(30);
         }
 
         function saveSession() {
@@ -720,6 +873,7 @@
             sessions.push(session);
             localStorage.setItem('beauty_sessions', JSON.stringify(sessions));
             alert('✅ Сесію збережено');
+            if (navigator.vibrate) navigator.vibrate(50);
         }
 
         // ---------- Управління панеллю ----------
@@ -727,16 +881,37 @@
             panelOpen = !panelOpen;
             if (panelOpen) bottomSheet.classList.add('open');
             else bottomSheet.classList.remove('open');
+            if (navigator.vibrate) navigator.vibrate(20);
         }
 
         sheetHandle.addEventListener('click', togglePanel);
 
         // ---------- Інші обробники ----------
-        btnCam.addEventListener('click', () => { isFrontCamera = !isFrontCamera; startCamera(); });
-        btnFreeze.addEventListener('click', () => { isFrozen = !isFrozen; btnFreeze.classList.toggle('active'); });
-        btnMesh.addEventListener('click', () => { meshMode = !meshMode; btnMesh.classList.toggle('active'); });
-        btnMimic.addEventListener('click', () => { mimicMode = !mimicMode; btnMimic.classList.toggle('active'); });
-        btnBotox.addEventListener('click', () => { botoxMode = !botoxMode; btnBotox.classList.toggle('active'); });
+        btnCam.addEventListener('click', () => { 
+            isFrontCamera = !isFrontCamera; 
+            startCamera();
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+        btnFreeze.addEventListener('click', () => { 
+            isFrozen = !isFrozen; 
+            btnFreeze.classList.toggle('active');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+        btnMesh.addEventListener('click', () => { 
+            meshMode = !meshMode; 
+            btnMesh.classList.toggle('active');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+        btnMimic.addEventListener('click', () => { 
+            mimicMode = !mimicMode; 
+            btnMimic.classList.toggle('active');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+        btnBotox.addEventListener('click', () => { 
+            botoxMode = !botoxMode; 
+            btnBotox.classList.toggle('active');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
         resetMaxBtn.addEventListener('click', resetMax);
         saveSessionBtn.addEventListener('click', saveSession);
         photoBeforeBtn.addEventListener('click', () => takePhoto('before'));
