@@ -1,39 +1,98 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Beauty AI | PDF Report Pro</title>
+    <title>Smart Beauty AI | Professional Facial Analysis</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        :root { --accent: #00ffcc; --danger: #ff3030; --warning: #ffd700; --panel-bg: rgba(10, 10, 10, 0.9); }
+        :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; --panel-bg: rgba(10, 10, 10, 0.9); }
         body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
         #container { position: relative; width: 100vw; height: 100vh; }
-        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        .side-panel { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: var(--panel-bg); padding: 20px; border-radius: 24px; border: 1px solid rgba(0, 255, 204, 0.3); width: 260px; z-index: 20; }
-        .mertz-box { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; border: 1px solid var(--accent); }
-        .mertz-val { font-size: 2.5rem; font-weight: 800; color: var(--accent); transition: color 0.3s; }
-        button { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); color: white; padding: 12px; width: 100%; border-radius: 12px; margin-top: 8px; cursor: pointer; transition: 0.3s; }
-        button.active { background: var(--accent); color: black; font-weight: bold; }
+        video, #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* Header & Lang */
+        .brand-header {
+            position: absolute; top: 20px; left: 20px; display: flex; align-items: center; gap: 12px;
+            background: var(--panel-bg); padding: 8px 18px; border-radius: 50px; border: 1px solid var(--accent); pointer-events: auto;
+        }
+        .lang-btn { position: absolute; top: 20px; right: 20px; background: var(--panel-bg); border: 1px solid var(--accent); color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; pointer-events: auto; font-weight: bold; }
+
+        /* Side Panel */
+        .side-panel { 
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%); 
+            background: var(--panel-bg); padding: 22px; border-radius: 25px; 
+            border: 1px solid rgba(0, 255, 204, 0.3); pointer-events: auto; width: 250px;
+            backdrop-filter: blur(15px);
+        }
+
+        .control-group { margin-bottom: 18px; }
+        .group-title { font-size: 0.65rem; text-transform: uppercase; color: var(--accent); opacity: 0.8; margin-bottom: 8px; display: block; letter-spacing: 2px; }
+        
+        button.action-btn { 
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 255, 204, 0.2); color: white; 
+            padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: 0.3s;
+            width: 100%; text-align: left; font-size: 0.8rem; margin-bottom: 6px;
+        }
+        button.action-btn.active { background: var(--accent); color: black; font-weight: bold; }
+        button.special-btn { border-color: var(--gold); color: var(--gold); }
+        button.special-btn.active { background: var(--gold); color: black; }
+        button.capture-btn { background: var(--accent); color: #000; font-weight: bold; margin-top: 10px; border: none; text-align: center; justify-content: center; }
+
+        .mertz-card { background: rgba(255,255,255,0.07); padding: 12px; border-radius: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .mertz-val { font-size: 2.5rem; font-weight: bold; line-height: 1; margin-bottom: 4px; color: var(--accent); }
+        
+        #activity-alert {
+            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
+            color: var(--danger); font-weight: bold; background: rgba(255,48,48,0.2);
+            padding: 8px 25px; border-radius: 30px; display: none; border: 1px solid var(--danger);
+            text-transform: uppercase; letter-spacing: 2px; animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
         #capture-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; z-index: 100; pointer-events: none; }
-        .brand-logo { width: 50px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
+
     <div id="capture-flash"></div>
+
     <div id="container">
-        <video id="webcam" autoplay playsinline></video>
+        <video id="video" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
+    </div>
+
+    <div class="ui-overlay">
+        <div class="brand-header">
+            <div style="background: var(--accent); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: black;">SB</div>
+            <span class="brand-name">Smart Beauty AI</span>
+        </div>
+
+        <button id="btn-lang" class="lang-btn">EN / UA</button>
+        <div id="activity-alert">HYPERACTIVITY</div>
+
         <div class="side-panel">
-            <img src="logo.png" alt="Smart Beauty" class="brand-logo" onerror="this.style.display='none'">
-            <div class="mertz-box">
-                <span style="font-size: 0.7rem; opacity: 0.7; text-transform: uppercase;">Шкала Mertz (AI)</span>
-                <div id="mertz-display" class="mertz-val">0</div>
+            <div class="control-group">
+                <span class="group-title" id="txt-diag">Diagnostics</span>
+                <div class="mertz-card">
+                    <div class="mertz-val" id="mertz-display">0</div>
+                    <div id="txt-mertz-lbl" style="font-size: 0.65rem; opacity: 0.6;">Mertz Scale</div>
+                </div>
             </div>
-            <button id="btn-botox">Симуляція Botox (AR)</button>
-            <button id="btn-anatomy">Анатомічна сітка</button>
-            <button id="btn-pdf" style="background: var(--accent); color: #000; font-weight: bold; margin-top: 20px;">📄 ГЕНЕРУВАТИ PDF ЗВІТ</button>
+
+            <div class="control-group">
+                <span class="group-title" id="txt-view">Visualization</span>
+                <button id="btn-mesh" class="action-btn active">Anatomy Mesh</button>
+                <button id="btn-botox" class="action-btn special-btn">Simulate Botox</button>
+            </div>
+
+            <div class="control-group">
+                <span class="group-title" id="txt-report">Reporting</span>
+                <button id="btn-pdf" class="action-btn capture-btn">📄 CREATE PDF REPORT</button>
+            </div>
         </div>
     </div>
 
@@ -41,15 +100,34 @@
         import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
         const { jsPDF } = window.jspdf;
-        const video = document.getElementById("webcam");
-        const canvasElement = document.getElementById("output_canvas");
-        const canvasCtx = canvasElement.getContext("2d");
-        
+        const translations = {
+            en: { diag: "Diagnostics", view: "Visualization", report: "Reporting", mertz: "Mertz Scale", alert: "HYPERACTIVITY", mesh: "Anatomy Mesh", botox: "Simulate Botox", pdf: "📄 CREATE PDF REPORT" },
+            ua: { diag: "Діагностика", view: "Візуалізація", report: "Звітність", mertz: "Шкала Мерца", alert: "ГІПЕРАКТИВНІСТЬ", mesh: "Анатомічна сітка", botox: "Ефект Ботоксу", pdf: "📄 ЗГЕНЕРУВАТИ PDF ЗВІТ" }
+        };
+
+        let lang = 'en';
         let faceLandmarker;
         let botoxMode = false;
-        let anatomyMode = false;
+        let meshMode = true;
         let currentMertz = 0;
         let currentLandmarks = null;
+
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("output_canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Lang Toggle
+        document.getElementById('btn-lang').onclick = () => {
+            lang = lang === 'en' ? 'ua' : 'en';
+            document.getElementById('txt-diag').innerText = translations[lang].diag;
+            document.getElementById('txt-view').innerText = translations[lang].view;
+            document.getElementById('txt-report').innerText = translations[lang].report;
+            document.getElementById('txt-mertz-lbl').innerText = translations[lang].mertz;
+            document.getElementById('activity-alert').innerText = translations[lang].alert;
+            document.getElementById('btn-mesh').innerText = translations[lang].mesh;
+            document.getElementById('btn-botox').innerText = translations[lang].botox;
+            document.getElementById('btn-pdf').innerText = translations[lang].pdf;
+        };
 
         async function init() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
@@ -63,118 +141,106 @@
             });
         }
 
-        async function renderLoop() {
-            canvasElement.width = video.videoWidth;
-            canvasElement.height = video.videoHeight;
+        function renderLoop() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             const results = faceLandmarker.detectForVideo(video, performance.now());
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (results.faceLandmarks && results.faceLandmarks.length > 0) {
                 currentLandmarks = results.faceLandmarks[0];
                 const blendshapes = results.faceBlendshapes[0].categories;
-                
-                // --- ВИПРАВЛЕНА ЛОГІКА ДЕТЕКЦІЇ ---
-                const browDown = (blendshapes.find(b => b.categoryName === "browDownLeft").score + blendshapes.find(b => b.categoryName === "browDownRight").score);
-                const eyeSquint = (blendshapes.find(b => b.categoryName === "eyeSquintLeft").score + blendshapes.find(b => b.categoryName === "eyeSquintRight").score);
-                
-                // Сумуємо активність і масштабуємо чутливість (х2.5)
-                const totalActivity = (browDown + eyeSquint) * 2.5;
-                currentMertz = Math.min(Math.round(totalActivity), 4);
-                
-                const display = document.getElementById("mertz-display");
-                display.innerText = currentMertz;
-                
-                // Зміна кольору тексту
-                if (currentMertz >= 3) display.style.color = "var(--danger)";
-                else if (currentMertz >= 1) display.style.color = "var(--warning)";
-                else display.style.color = "var(--accent)";
 
-                if (anatomyMode) {
-                    const draw = new DrawingUtils(canvasCtx);
-                    draw.drawConnectors(currentLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff20" });
-                }
+                // --- CALCULATION (Fixing the 0 issue) ---
+                const browDown = (blendshapes.find(b => b.categoryName === "browDownLeft").score + 
+                                  blendshapes.find(b => b.categoryName === "browDownRight").score);
+                const eyeSquint = (blendshapes.find(b => b.categoryName === "eyeSquintLeft").score + 
+                                   blendshapes.find(b => b.categoryName === "eyeSquintRight").score);
+                
+                currentMertz = Math.min(Math.round((browDown + eyeSquint) * 3.5), 4);
+                
+                const mDisplay = document.getElementById("mertz-display");
+                mDisplay.innerText = currentMertz;
+                mDisplay.style.color = currentMertz >= 3 ? "var(--danger)" : (currentMertz >= 1 ? "var(--gold)" : "var(--accent)");
+                document.getElementById('activity-alert').style.display = currentMertz >= 3 ? 'block' : 'none';
 
-                // ВІЗУАЛІЗАЦІЯ КРАПОК (ДИНАМІЧНИЙ КОЛІР)
-                if (!botoxMode) {
-                    drawActivePoints(currentLandmarks, currentMertz);
-                } else {
+                const draw = new DrawingUtils(ctx);
+                if (meshMode) draw.drawConnectors(currentLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff15" });
+
+                if (botoxMode) {
                     applyBotoxEffect(currentLandmarks);
+                } else {
+                    drawActivePoints(currentLandmarks, currentMertz);
                 }
             }
             requestAnimationFrame(renderLoop);
         }
 
         function drawActivePoints(landmarks, mertz) {
-            // Визначаємо колір крапок залежно від Mertz
-            let pColor = "rgba(0, 255, 204, 0.6)"; // Зелений
-            if (mertz >= 3) pColor = "rgba(255, 48, 48, 0.8)"; // Червоний
-            else if (mertz >= 1) pColor = "rgba(255, 215, 0, 0.8)"; // Жовтий
-
-            // Ключові зони: міжбрів'я (8, 9, 168) та очі (33, 263)
-            const activeIndices = [8, 9, 168, 6, 107, 336, 33, 133, 263, 362];
-            activeIndices.forEach(idx => {
-                const x = landmarks[idx].x * canvasElement.width;
-                const y = landmarks[idx].y * canvasElement.height;
-                canvasCtx.fillStyle = pColor;
-                canvasCtx.beginPath();
-                canvasCtx.arc(x, y, 5 + mertz, 0, Math.PI * 2);
-                canvasCtx.fill();
+            const color = mertz >= 3 ? "rgba(255, 48, 48, 0.8)" : (mertz >= 1 ? "rgba(255, 215, 0, 0.8)" : "rgba(0, 255, 204, 0.6)");
+            [8, 9, 168, 33, 263].forEach(idx => {
+                const p = landmarks[idx];
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(p.x * canvas.width, p.y * canvas.height, 5 + mertz, 0, Math.PI * 2);
+                ctx.fill();
             });
         }
 
         function applyBotoxEffect(landmarks) {
-            canvasCtx.save();
-            canvasCtx.filter = "blur(18px) brightness(1.05)";
-            canvasCtx.fillStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.save();
+            ctx.filter = "blur(18px) brightness(1.1)";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
             const forehead = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 10];
-            canvasCtx.beginPath();
+            ctx.beginPath();
             forehead.forEach((idx, i) => {
-                const x = landmarks[idx].x * canvasElement.width;
-                const y = landmarks[idx].y * canvasElement.height;
-                if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+                const x = landmarks[idx].x * canvas.width;
+                const y = landmarks[idx].y * canvas.height;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
-            canvasCtx.fill();
-            canvasCtx.restore();
+            ctx.fill();
+            ctx.restore();
         }
 
         document.getElementById("btn-pdf").onclick = async () => {
-            const flash = document.getElementById("capture-flash");
-            flash.style.display = "block"; setTimeout(() => flash.style.display = "none", 100);
-            
+            document.getElementById("capture-flash").style.display = "block";
+            setTimeout(() => document.getElementById("capture-flash").style.display = "none", 100);
+
             const oldBotox = botoxMode;
-            botoxMode = false; await new Promise(r => setTimeout(r, 150));
+            botoxMode = false; await new Promise(r => setTimeout(r, 200));
             const imgBefore = captureFrame();
             
-            botoxMode = true; await new Promise(r => setTimeout(r, 150));
+            botoxMode = true; await new Promise(r => setTimeout(r, 200));
             const imgAfter = captureFrame();
             botoxMode = oldBotox;
 
             const doc = new jsPDF();
-            try { doc.addImage('logo.png', 'PNG', 15, 10, 20, 20); } catch(e) {}
-            doc.setFontSize(22); doc.text("Smart Beauty Diagnostic Report", 40, 25);
-            doc.setFontSize(12); doc.text(`Дата: ${new Date().toLocaleDateString()}`, 15, 40);
-            doc.text(`Ступінь гіперактивності (Mertz): ${currentMertz}/4`, 15, 48);
+            doc.setFillColor(10, 10, 10); doc.rect(0, 0, 210, 297, 'F');
+            doc.setTextColor(0, 255, 204); doc.setFontSize(22);
+            doc.text("Smart Beauty AI Report", 20, 30);
             
-            doc.setFontSize(14);
-            doc.text("ДО (Активна міміка)", 15, 65); doc.addImage(imgBefore, 'JPEG', 15, 70, 85, 110);
-            doc.text("ПІСЛЯ (Симуляція Botox)", 110, 65); doc.addImage(imgAfter, 'JPEG', 110, 70, 85, 110);
+            doc.setTextColor(255, 255, 255); doc.setFontSize(12);
+            doc.text(`Date: ${new Date().toLocaleString()}`, 20, 45);
+            doc.text(`Mertz Grade: ${currentMertz}/4`, 20, 53);
+
+            doc.text("BEFORE (Activity)", 20, 75); doc.addImage(imgBefore, 'JPEG', 20, 80, 80, 105);
+            doc.text("AFTER (Botox Sim)", 110, 75); doc.addImage(imgAfter, 'JPEG', 110, 80, 80, 105);
             
-            doc.setFontSize(10); doc.setTextColor(100);
-            doc.text("Цей звіт сформовано AI. Не є медичним висновком.", 15, 195);
-            doc.save(`Report_${Date.now()}.pdf`);
+            doc.save(`SmartBeauty_Report_${Date.now()}.pdf`);
         };
 
         function captureFrame() {
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = canvasElement.width; tempCanvas.height = canvasElement.height;
-            const ctx = tempCanvas.getContext("2d");
-            ctx.scale(-1, 1); ctx.drawImage(video, -tempCanvas.width, 0, tempCanvas.width, tempCanvas.height);
-            ctx.scale(-1, 1); ctx.drawImage(canvasElement, 0, 0);
-            return tempCanvas.toDataURL("image/jpeg", 0.8);
+            const temp = document.createElement("canvas");
+            temp.width = canvas.width; temp.height = canvas.height;
+            const tCtx = temp.getContext("2d");
+            tCtx.scale(-1, 1); tCtx.drawImage(video, -temp.width, 0, temp.width, temp.height);
+            tCtx.scale(-1, 1); tCtx.drawImage(canvas, 0, 0);
+            return temp.toDataURL("image/jpeg", 0.8);
         }
 
         document.getElementById("btn-botox").onclick = (e) => { botoxMode = !botoxMode; e.target.classList.toggle("active"); };
-        document.getElementById("btn-anatomy").onclick = (e) => { anatomyMode = !anatomyMode; e.target.classList.toggle("active"); };
+        document.getElementById("btn-mesh").onclick = (e) => { meshMode = !meshMode; e.target.classList.toggle("active"); };
+
         init();
     </script>
 </body>
