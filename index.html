@@ -1,871 +1,749 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Косметологічний аналізатор міміки Pro</title>
-  
-  <!-- Шрифти -->
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
-  
-  <style>
-    :root {
-      --bg-dark: #121212;
-      --bg-card: rgba(30, 30, 30, 0.9);
-      --gold-accent: #d4a373;
-      --gold-bright: #e8c66e;
-      --text-light: #f5f5f5;
-      --font-heading: 'Cormorant Garamond', serif;
-      --font-body: 'Open Sans', sans-serif;
-      --shadow-lg: 0 15px 35px rgba(0,0,0,0.6);
-      --shadow-md: 0 8px 25px rgba(0,0,0,0.4);
-      --transition: all 0.3s ease;
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    body {
-      font-family: var(--font-body);
-      background-color: var(--bg-dark);
-      color: var(--text-light);
-      line-height: 1.6;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 20px;
-      flex: 1;
-    }
-    
-    .header {
-      text-align: center;
-      padding: 30px 15px;
-      background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
-      border-radius: 0 0 40px 40px;
-      margin-bottom: 30px;
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .header h1 {
-      font-size: 32px;
-      color: var(--gold-accent);
-      font-family: var(--font-heading);
-      letter-spacing: 1px;
-    }
-    
-    .header p {
-      font-size: 18px;
-      max-width: 600px;
-      margin: 15px auto 0;
-    }
-    
-    .camera-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(5px);
-      border: 2px solid var(--gold-accent);
-      border-radius: 30px;
-      padding: 20px;
-      margin-bottom: 30px;
-      box-shadow: var(--shadow-md);
-    }
-    
-    .video-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 640px;
-      margin: 0 auto;
-      border-radius: 20px;
-      overflow: hidden;
-      aspect-ratio: 4 / 3;
-      background: #2a2a2a;
-    }
-    
-    #video, #canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin: 20px 0 10px;
-    }
-    
-    .btn {
-      padding: 10px 20px;
-      background: transparent;
-      border: 2px solid var(--gold-accent);
-      color: var(--gold-accent);
-      font-family: var(--font-heading);
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      cursor: pointer;
-      border-radius: 40px;
-      transition: var(--transition);
-    }
-    
-    .btn:hover {
-      background: var(--gold-accent);
-      color: #121212;
-    }
-    
-    .btn.small {
-      padding: 6px 12px;
-      font-size: 14px;
-    }
-    
-    .btn.primary {
-      background: var(--gold-accent);
-      color: #121212;
-    }
-    
-    .btn.primary:hover {
-      background: transparent;
-      color: var(--gold-accent);
-    }
-    
-    .status {
-      text-align: center;
-      font-size: 16px;
-      margin-top: 15px;
-      padding: 10px;
-      background: #2a2a2a;
-      border-radius: 30px;
-      color: var(--gold-accent);
-    }
-    
-    /* Метрики */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 15px;
-      margin: 30px 0;
-    }
-    
-    .metric-card {
-      background: rgba(20, 20, 20, 0.8);
-      border: 1px solid var(--gold-accent);
-      border-radius: 25px;
-      padding: 15px;
-      text-align: center;
-    }
-    
-    .metric-card h3 {
-      color: var(--gold-accent);
-      font-family: var(--font-heading);
-      font-size: 18px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--gold-accent);
-      padding-bottom: 5px;
-    }
-    
-    .value {
-      font-size: 32px;
-      font-weight: 600;
-      color: var(--gold-bright);
-      line-height: 1.2;
-    }
-    
-    .unit {
-      font-size: 14px;
-      opacity: 0.8;
-    }
-    
-    .max-value {
-      margin-top: 5px;
-      font-size: 14px;
-    }
-    
-    .max-value span {
-      color: var(--gold-accent);
-      font-weight: 600;
-    }
-    
-    /* Графік */
-    .graph-container {
-      background: rgba(20, 20, 20, 0.8);
-      border: 1px solid var(--gold-accent);
-      border-radius: 25px;
-      padding: 20px;
-      margin: 30px 0;
-    }
-    
-    .graph-container h3 {
-      color: var(--gold-accent);
-      font-family: var(--font-heading);
-      font-size: 22px;
-      margin-bottom: 15px;
-      text-align: center;
-    }
-    
-    #graphCanvas {
-      width: 100%;
-      height: auto;
-      background: #1e1e1e;
-      border-radius: 15px;
-      display: block;
-    }
-    
-    /* Фото до/після */
-    .photo-compare {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      margin: 30px 0;
-    }
-    
-    .photo-card {
-      flex: 1 1 250px;
-      background: rgba(20, 20, 20, 0.8);
-      border: 1px solid var(--gold-accent);
-      border-radius: 25px;
-      padding: 15px;
-      text-align: center;
-    }
-    
-    .photo-card img {
-      width: 100%;
-      border-radius: 15px;
-      border: 2px solid var(--gold-accent);
-      background: #2a2a2a;
-      min-height: 150px;
-    }
-    
-    .photo-card .btn {
-      margin-top: 10px;
-    }
-    
-    /* Інструкція */
-    .instructions {
-      background: rgba(212,163,115,0.1);
-      border-radius: 30px;
-      padding: 25px;
-      margin: 30px 0;
-    }
-    
-    .instructions h3 {
-      color: var(--gold-accent);
-      margin-bottom: 15px;
-    }
-    
-    .instructions ul {
-      list-style: none;
-    }
-    
-    .instructions li {
-      margin-bottom: 10px;
-      padding-left: 24px;
-      position: relative;
-    }
-    
-    .instructions li::before {
-      content: '✓';
-      color: var(--gold-accent);
-      position: absolute;
-      left: 0;
-    }
-    
-    .footer {
-      text-align: center;
-      padding: 30px 20px;
-      background: #1a1a1a;
-      border-top: 2px solid var(--gold-accent);
-      margin-top: 50px;
-    }
-    
-    @media (min-width: 768px) {
-      .btn { font-size: 18px; padding: 12px 28px; }
-      .metrics-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    
-    @media (min-width: 1024px) {
-      .metrics-grid { grid-template-columns: repeat(6, 1fr); }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Beauty AI • Висувна панель</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* Контейнер камери на весь екран */
+        .camera-full {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        video, canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .mirror {
+            transform: scaleX(-1);
+        }
+
+        /* Верхня панель керування (завжди видима) */
+        .top-controls {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .ctrl-btn {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #00ffcc;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+        }
+
+        .ctrl-btn.active {
+            background: #00ffcc;
+            color: black;
+        }
+
+        .mode-btn {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #00ffcc;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .mode-btn.active {
+            background: #00ffcc;
+            color: black;
+        }
+
+        /* Індикатор ступеня мерця (завжди видимий) */
+        .mertz-indicator {
+            position: absolute;
+            bottom: 90px; /* над панеллю */
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            border: 2px solid #00ffcc;
+            border-radius: 60px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 25;
+        }
+
+        .mertz-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .mertz-value {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .alert-badge {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff3030;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-weight: bold;
+            display: none;
+            z-index: 30;
+            white-space: nowrap;
+        }
+
+        /* ===== ВИСУВНА НИЖНЯ ПАНЕЛЬ ===== */
+        .bottom-sheet {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 2px solid #00ffcc;
+            border-radius: 30px 30px 0 0;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(calc(100% - 50px)); /* спочатку видно тільки ручку */
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+        }
+
+        .bottom-sheet.open {
+            transform: translateY(0); /* повністю відкрита */
+        }
+
+        /* Ручка для перетягування */
+        .sheet-handle {
+            width: 100%;
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .handle-bar {
+            width: 50px;
+            height: 5px;
+            background: #00ffcc;
+            border-radius: 10px;
+            margin-bottom: 5px;
+        }
+
+        .handle-text {
+            font-size: 12px;
+            color: #00ffcc;
+            opacity: 0.8;
+        }
+
+        /* Контент панелі (скролиться) */
+        .sheet-content {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Сітка метрик */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 500px) {
+            .metrics-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .metric-card {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid #00ffcc;
+            border-radius: 20px;
+            padding: 15px 5px;
+            text-align: center;
+        }
+
+        .metric-card h4 {
+            color: #00ffcc;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .metric-max {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .metric-max span {
+            color: #00ffcc;
+        }
+
+        /* Графік */
+        .graph-container {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #00ffcc;
+            border-radius: 25px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .graph-title {
+            color: #00ffcc;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: auto;
+            background: #1e1e1e;
+            border-radius: 15px;
+        }
+
+        /* Фото до/після */
+        .photo-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .photo-card {
+            flex: 1;
+            max-width: 150px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #00ffcc;
+            border-radius: 20px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .photo-card img {
+            width: 100%;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            border-radius: 15px;
+            background: #2a2a2a;
+        }
+
+        .photo-btn {
+            margin-top: 10px;
+            padding: 8px;
+            font-size: 13px;
+            background: transparent;
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            border-radius: 30px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Кнопки дій */
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .big-btn {
+            background: transparent;
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            flex: 1 1 auto;
+            min-width: 140px;
+        }
+
+        .big-btn.primary {
+            background: #00ffcc;
+            color: black;
+        }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🔬 Аналізатор міміки Pro</h1>
-    <p>Вимірювання активності м'язів обличчя в реальному часі</p>
-  </div>
-  
-  <div class="container">
-    <!-- Камера та основне управління -->
-    <div class="camera-card">
-      <div class="video-wrapper">
-        <video id="video" playsinline autoplay muted></video>
-        <canvas id="canvas"></canvas>
-      </div>
-      
-      <div class="controls">
-        <button class="btn" id="startBtn">▶ Запустити камеру</button>
-        <button class="btn" id="calibrateBtn">⚙️ Калібрувати спокій</button>
-        <button class="btn" id="resetMaxBtn">🔄 Скинути максимуми</button>
-        <button class="btn" id="saveSessionBtn">💾 Зберегти сесію</button>
-      </div>
-      
-      <div class="status" id="status">Очікування запуску камери...</div>
-    </div>
-    
-    <!-- Панель з 6 метриками -->
-    <div class="metrics-grid" id="metricsGrid">
-      <!-- Ліва брова -->
-      <div class="metric-card">
-        <h3>Ліва брова</h3>
-        <div class="value" id="browLeftValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="browLeftMax">0.00</span></div>
-      </div>
-      <!-- Права брова -->
-      <div class="metric-card">
-        <h3>Права брова</h3>
-        <div class="value" id="browRightValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="browRightMax">0.00</span></div>
-      </div>
-      <!-- Ліве око (примуржування) -->
-      <div class="metric-card">
-        <h3>Ліве око (прим.)</h3>
-        <div class="value" id="eyeLeftValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="eyeLeftMax">0.00</span></div>
-      </div>
-      <!-- Праве око (примуржування) -->
-      <div class="metric-card">
-        <h3>Праве око (прим.)</h3>
-        <div class="value" id="eyeRightValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="eyeRightMax">0.00</span></div>
-      </div>
-      <!-- Лівий куточок рота -->
-      <div class="metric-card">
-        <h3>Лівий куточок рота</h3>
-        <div class="value" id="mouthLeftValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="mouthLeftMax">0.00</span></div>
-      </div>
-      <!-- Правий куточок рота -->
-      <div class="metric-card">
-        <h3>Правий куточок рота</h3>
-        <div class="value" id="mouthRightValue">0.00</div>
-        <div class="unit">норм. пікс.</div>
-        <div class="max-value">Макс: <span id="mouthRightMax">0.00</span></div>
-      </div>
-    </div>
-    
-    <!-- Графік динаміки -->
-    <div class="graph-container">
-      <h3>📈 Динаміка активності (останні 100 кадрів)</h3>
-      <canvas id="graphCanvas" width="800" height="200"></canvas>
-    </div>
-    
-    <!-- Фото до/після -->
-    <div class="photo-compare">
-      <div class="photo-card">
-        <h3>📸 До</h3>
-        <img id="photoBefore" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect width='200' height='150' fill='%232a2a2a'/%3E%3Ctext x='50' y='75' fill='%23d4a373' font-family='Arial' font-size='14'%3EНемає фото%3C/text%3E%3C/svg%3E" alt="Before">
-        <button class="btn small" id="photoBeforeBtn">Зробити знімок "До"</button>
-      </div>
-      <div class="photo-card">
-        <h3>📸 Після</h3>
-        <img id="photoAfter" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect width='200' height='150' fill='%232a2a2a'/%3E%3Ctext x='50' y='75' fill='%23d4a373' font-family='Arial' font-size='14'%3EНемає фото%3C/text%3E%3C/svg%3E" alt="After">
-        <button class="btn small" id="photoAfterBtn">Зробити знімок "Після"</button>
-      </div>
-    </div>
-    
-    <!-- Інструкція -->
-    <div class="instructions">
-      <h3>📋 Як користуватись</h3>
-      <ul>
-        <li><strong>1.</strong> Натисніть "Запустити камеру" та дозвольте доступ.</li>
-        <li><strong>2.</strong> Станьте рівно, розслабте обличчя, натисніть "Калібрувати спокій".</li>
-        <li><strong>3.</strong> Виконуйте мімічні рухи: піднімайте брови, примуржуйтесь, посміхайтесь.</li>
-        <li><strong>4.</strong> Спостерігайте за змінами значень та графіком.</li>
-        <li><strong>5.</strong> Максимальні значення за сесію показуються під кожною метрикою.</li>
-        <li><strong>6.</strong> Ви можете зберегти результати (максимуми) в localStorage кнопкою "Зберегти сесію".</li>
-        <li><strong>7.</strong> Для фото "до/після" зробіть знімки відповідними кнопками.</li>
-      </ul>
-    </div>
-  </div>
-  
-  <div class="footer">
-    <p>© 2025 | Прототип для косметологів | На основі MediaPipe Face Mesh</p>
-  </div>
+    <div class="camera-full">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="output_canvas"></canvas>
 
-  <!-- Підключення MediaPipe -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  
-  <script>
-    (function() {
-      // ---------- DOM елементи ----------
-      const video = document.getElementById('video');
-      const canvas = document.getElementById('canvas');
-      const ctx = canvas.getContext('2d');
-      const statusEl = document.getElementById('status');
-      
-      // Метрики
-      const browLeftValue = document.getElementById('browLeftValue');
-      const browRightValue = document.getElementById('browRightValue');
-      const eyeLeftValue = document.getElementById('eyeLeftValue');
-      const eyeRightValue = document.getElementById('eyeRightValue');
-      const mouthLeftValue = document.getElementById('mouthLeftValue');
-      const mouthRightValue = document.getElementById('mouthRightValue');
-      
-      const browLeftMax = document.getElementById('browLeftMax');
-      const browRightMax = document.getElementById('browRightMax');
-      const eyeLeftMax = document.getElementById('eyeLeftMax');
-      const eyeRightMax = document.getElementById('eyeRightMax');
-      const mouthLeftMax = document.getElementById('mouthLeftMax');
-      const mouthRightMax = document.getElementById('mouthRightMax');
-      
-      // Кнопки
-      const startBtn = document.getElementById('startBtn');
-      const calibrateBtn = document.getElementById('calibrateBtn');
-      const resetMaxBtn = document.getElementById('resetMaxBtn');
-      const saveSessionBtn = document.getElementById('saveSessionBtn');
-      const photoBeforeBtn = document.getElementById('photoBeforeBtn');
-      const photoAfterBtn = document.getElementById('photoAfterBtn');
-      
-      // Графік
-      const graphCanvas = document.getElementById('graphCanvas');
-      const graphCtx = graphCanvas.getContext('2d');
-      
-      // ---------- Індекси точок (з MediaPipe) ----------
-      const IDX = {
-        LEFT_EYE_OUTER: 33,      // зовнішній кут лівого ока
-        RIGHT_EYE_OUTER: 263,    // зовнішній кут правого ока
-        LEFT_BROW: 105,          // внутрішній край лівої брови
-        RIGHT_BROW: 334,         // внутрішній край правої брови
-        LEFT_EYE_UPPER: 34,      // верхня повіка ліва (зовнішня частина)
-        LEFT_EYE_LOWER: 94,      // нижня повіка ліва (зовнішня частина)
-        RIGHT_EYE_UPPER: 264,    // верхня повіка права
-        RIGHT_EYE_LOWER: 394,    // нижня повіка права
-        LEFT_MOUTH: 61,          // лівий куточок рота
-        RIGHT_MOUTH: 291         // правий куточок рота
-      };
-      
-      // ---------- Глобальні змінні ----------
-      let faceMesh = null;
-      let camera = null;
-      let isCameraRunning = false;
-      
-      // Калібрування
-      let shouldCalibrate = false;         // прапорець, що наступне виявлення - калібрування
-      
-      // Базові значення (стан спокою)
-      let baseline = {
-        browLeftY: null,
-        browRightY: null,
-        eyeLeftDist: null,    // відстань між верхньою та нижньою повікою (ліве око)
-        eyeRightDist: null,
-        mouthLeftY: null,
-        mouthRightY: null,
-        eyeDistance: null     // відстань між зовнішніми кутами очей (для нормалізації)
-      };
-      
-      // Поточні значення (нормалізовані)
-      let current = {
-        browLeft: 0,
-        browRight: 0,
-        eyeLeft: 0,
-        eyeRight: 0,
-        mouthLeft: 0,
-        mouthRight: 0
-      };
-      
-      // Максимуми
-      let maxValues = {
-        browLeft: 0,
-        browRight: 0,
-        eyeLeft: 0,
-        eyeRight: 0,
-        mouthLeft: 0,
-        mouthRight: 0
-      };
-      
-      // Історія для графіка (максимум 100 точок)
-      const historyLength = 100;
-      let history = {
-        browLeft: [],
-        browRight: [],
-        eyeLeft: [],
-        eyeRight: [],
-        mouthLeft: [],
-        mouthRight: []
-      };
-      
-      // Для фото
-      let photoBeforeDataURL = null;
-      let photoAfterDataURL = null;
-      
-      // ---------- Допоміжні функції ----------
-      function updateUI() {
-        browLeftValue.textContent = current.browLeft.toFixed(3);
-        browRightValue.textContent = current.browRight.toFixed(3);
-        eyeLeftValue.textContent = current.eyeLeft.toFixed(3);
-        eyeRightValue.textContent = current.eyeRight.toFixed(3);
-        mouthLeftValue.textContent = current.mouthLeft.toFixed(3);
-        mouthRightValue.textContent = current.mouthRight.toFixed(3);
+        <!-- Тривога гіперактивності -->
+        <div id="alertBadge" class="alert-badge">ГІПЕРАКТИВНІСТЬ</div>
+
+        <!-- Верхня панель керування -->
+        <div class="top-controls">
+            <div class="ctrl-btn" id="btnCam" title="Змінити камеру">🔄</div>
+            <div class="ctrl-btn" id="btnFreeze" title="Заморозити кадр">❄️</div>
+            <div class="mode-btn" id="btnMesh">📐 Сітка</div>
+            <div class="mode-btn" id="btnMimic">🔥 Міміка</div>
+            <div class="mode-btn" id="btnBotox">💉 Ботокс</div>
+        </div>
+
+        <!-- Ступінь мерця (завжди видно) -->
+        <div class="mertz-indicator">
+            <span class="mertz-label">Ступінь мерця</span>
+            <span class="mertz-value" id="mertzValue">0</span>
+        </div>
+
+        <!-- НИЖНЯ ВИСУВНА ПАНЕЛЬ -->
+        <div class="bottom-sheet" id="bottomSheet">
+            <div class="sheet-handle" id="sheetHandle">
+                <div class="handle-bar"></div>
+                <div class="handle-text">Показники активності</div>
+            </div>
+            <div class="sheet-content" id="sheetContent">
+                <!-- Сітка метрик (буде заповнена JS) -->
+                <div class="metrics-grid" id="metricsGrid"></div>
+
+                <!-- Графік -->
+                <div class="graph-container">
+                    <div class="graph-title">📈 Динаміка активності (60 кадрів)</div>
+                    <canvas id="graphCanvas" width="600" height="150"></canvas>
+                </div>
+
+                <!-- Фото до/після -->
+                <div class="photo-row">
+                    <div class="photo-card">
+                        <img id="photoBefore" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='113' viewBox='0 0 150 113'%3E%3Crect width='150' height='113' fill='%232a2a2a'/%3E%3Ctext x='30' y='60' fill='%2300ffcc' font-size='12'%3EДо%3C/text%3E%3C/svg%3E" alt="Before">
+                        <button class="photo-btn" id="photoBeforeBtn">📸 Зробити До</button>
+                    </div>
+                    <div class="photo-card">
+                        <img id="photoAfter" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='113' viewBox='0 0 150 113'%3E%3Crect width='150' height='113' fill='%232a2a2a'/%3E%3Ctext x='30' y='60' fill='%2300ffcc' font-size='12'%3EПісля%3C/text%3E%3C/svg%3E" alt="After">
+                        <button class="photo-btn" id="photoAfterBtn">📸 Зробити Після</button>
+                    </div>
+                </div>
+
+                <!-- Кнопки дій -->
+                <div class="actions">
+                    <button class="big-btn" id="resetMaxBtn">🔄 Скинути максимуми</button>
+                    <button class="big-btn primary" id="saveSessionBtn">💾 Зберегти сесію</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+        // ---------- DOM ----------
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('output_canvas');
+        const ctx = canvas.getContext('2d');
+        const mertzSpan = document.getElementById('mertzValue');
+        const alertBadge = document.getElementById('alertBadge');
         
-        browLeftMax.textContent = maxValues.browLeft.toFixed(3);
-        browRightMax.textContent = maxValues.browRight.toFixed(3);
-        eyeLeftMax.textContent = maxValues.eyeLeft.toFixed(3);
-        eyeRightMax.textContent = maxValues.eyeRight.toFixed(3);
-        mouthLeftMax.textContent = maxValues.mouthLeft.toFixed(3);
-        mouthRightMax.textContent = maxValues.mouthRight.toFixed(3);
-      }
-      
-      // Додати поточні значення до історії
-      function addToHistory() {
-        for (let key in current) {
-          if (history.hasOwnProperty(key)) {
-            history[key].push(current[key]);
-            if (history[key].length > historyLength) {
-              history[key].shift();
-            }
-          }
-        }
-      }
-      
-      // Малювання графіка
-      function drawGraph() {
-        graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
-        if (history.browLeft.length === 0) return;
+        // Кнопки
+        const btnCam = document.getElementById('btnCam');
+        const btnFreeze = document.getElementById('btnFreeze');
+        const btnMesh = document.getElementById('btnMesh');
+        const btnMimic = document.getElementById('btnMimic');
+        const btnBotox = document.getElementById('btnBotox');
+        const resetMaxBtn = document.getElementById('resetMaxBtn');
+        const saveSessionBtn = document.getElementById('saveSessionBtn');
+        const photoBeforeBtn = document.getElementById('photoBeforeBtn');
+        const photoAfterBtn = document.getElementById('photoAfterBtn');
         
-        const w = graphCanvas.width;
-        const h = graphCanvas.height;
-        const colors = {
-          browLeft: '#d4a373',
-          browRight: '#e8c66e',
-          eyeLeft: '#ff7d00',
-          eyeRight: '#ffaa00',
-          mouthLeft: '#cbaacb',
-          mouthRight: '#aaccdd'
+        // Нижня панель
+        const bottomSheet = document.getElementById('bottomSheet');
+        const sheetHandle = document.getElementById('sheetHandle');
+        
+        // Графік
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        // ---------- Стан ----------
+        let faceLandmarker;
+        let isFrontCamera = false;
+        let isFrozen = false;
+        let meshMode = true;
+        let mimicMode = false;
+        let botoxMode = false;
+        let panelOpen = false; // чи відкрита нижня панель
+
+        // Калібрування та метрики
+        let baseline = {
+            eyeDistance: null,
+            browLeftY: null, browRightY: null,
+            eyeLeftDist: null, eyeRightDist: null,
+            mouthLeftY: null, mouthRightY: null
         };
-        
-        // Знаходимо максимум серед усіх значень в історії для масштабування по Y
-        let maxVal = 0.05; // мінімальний діапазон
-        for (let key in history) {
-          const arr = history[key];
-          if (arr.length > 0) {
-            const m = Math.max(...arr);
-            if (m > maxVal) maxVal = m;
-          }
-        }
-        if (maxVal < 0.01) maxVal = 0.01;
-        
-        const xStep = w / (historyLength - 1);
-        
-        // Малюємо лінії для кожної метрики
-        for (let key in history) {
-          const arr = history[key];
-          if (arr.length < 2) continue;
-          
-          graphCtx.beginPath();
-          graphCtx.strokeStyle = colors[key] || '#ffffff';
-          graphCtx.lineWidth = 2;
-          
-          for (let i = 0; i < arr.length; i++) {
-            const x = i * xStep;
-            const y = h - (arr[i] / maxVal) * h * 0.9; // залишаємо 10% відступу зверху
-            if (i === 0) graphCtx.moveTo(x, y);
-            else graphCtx.lineTo(x, y);
-          }
-          graphCtx.stroke();
-        }
-      }
-      
-      // Скидання максимумів
-      function resetMax() {
-        maxValues = {
-          browLeft: 0,
-          browRight: 0,
-          eyeLeft: 0,
-          eyeRight: 0,
-          mouthLeft: 0,
-          mouthRight: 0
+        let shouldCalibrate = true;
+
+        let current = {
+            browLeft: 0, browRight: 0,
+            eyeLeft: 0, eyeRight: 0,
+            mouthLeft: 0, mouthRight: 0
         };
-        updateUI();
-      }
-      
-      // Оновлення максимумів на основі поточних значень
-      function updateMax() {
-        if (current.browLeft > maxValues.browLeft) maxValues.browLeft = current.browLeft;
-        if (current.browRight > maxValues.browRight) maxValues.browRight = current.browRight;
-        if (current.eyeLeft > maxValues.eyeLeft) maxValues.eyeLeft = current.eyeLeft;
-        if (current.eyeRight > maxValues.eyeRight) maxValues.eyeRight = current.eyeRight;
-        if (current.mouthLeft > maxValues.mouthLeft) maxValues.mouthLeft = current.mouthLeft;
-        if (current.mouthRight > maxValues.mouthRight) maxValues.mouthRight = current.mouthRight;
-      }
-      
-      // ---------- Функція обробки результатів FaceMesh ----------
-      function onResults(results) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-          const landmarks = results.multiFaceLandmarks[0];
-          
-          // Малюємо всі точки сірим кольором
-          ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = '#aaaaaa';
-          ctx.strokeStyle = '#cccccc';
-          ctx.lineWidth = 1;
-          
-          for (const point of landmarks) {
-            const x = point.x * canvas.width;
-            const y = point.y * canvas.height;
-            ctx.beginPath();
-            ctx.arc(x, y, 1.2, 0, 2 * Math.PI);
-            ctx.fill();
-          }
-          
-          // Отримуємо координати ключових точок
-          const getPoint = (idx) => {
-            const p = landmarks[idx];
-            return { x: p.x * canvas.width, y: p.y * canvas.height };
-          };
-          
-          try {
-            const leftEyeOuter = getPoint(IDX.LEFT_EYE_OUTER);
-            const rightEyeOuter = getPoint(IDX.RIGHT_EYE_OUTER);
-            const browLeft = getPoint(IDX.LEFT_BROW);
-            const browRight = getPoint(IDX.RIGHT_BROW);
-            const leftEyeUpper = getPoint(IDX.LEFT_EYE_UPPER);
-            const leftEyeLower = getPoint(IDX.LEFT_EYE_LOWER);
-            const rightEyeUpper = getPoint(IDX.RIGHT_EYE_UPPER);
-            const rightEyeLower = getPoint(IDX.RIGHT_EYE_LOWER);
-            const mouthLeft = getPoint(IDX.LEFT_MOUTH);
-            const mouthRight = getPoint(IDX.RIGHT_MOUTH);
-            
-            // Відстань між очима (для нормалізації)
-            const eyeDistance = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y);
-            
-            // Якщо потрібно калібрування
-            if (shouldCalibrate && eyeDistance > 0) {
-              baseline.browLeftY = browLeft.y;
-              baseline.browRightY = browRight.y;
-              baseline.eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
-              baseline.eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
-              baseline.mouthLeftY = mouthLeft.y;
-              baseline.mouthRightY = mouthRight.y;
-              baseline.eyeDistance = eyeDistance;
-              
-              shouldCalibrate = false;
-              resetMax(); // скидаємо максимуми при новому калібруванні
-              statusEl.textContent = '✅ Калібрування виконано. Тепер виконуйте рухи.';
-            }
-            
-            // Якщо базові значення встановлені, обчислюємо активність
-            if (baseline.eyeDistance && baseline.eyeDistance > 0) {
-              // Нормалізовані значення (ділимо на відстань між очима)
-              const normFactor = baseline.eyeDistance;
-              
-              // Брови: вертикальне зміщення (вгору додатне)
-              current.browLeft = Math.max(0, (baseline.browLeftY - browLeft.y) / normFactor);
-              current.browRight = Math.max(0, (baseline.browRightY - browRight.y) / normFactor);
-              
-              // Очі: зменшення відстані між верхньою і нижньою повікою (примуржування)
-              const eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
-              const eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
-              current.eyeLeft = Math.max(0, (baseline.eyeLeftDist - eyeLeftDist) / normFactor);
-              current.eyeRight = Math.max(0, (baseline.eyeRightDist - eyeRightDist) / normFactor);
-              
-              // Куточки рота: вертикальне підняття (усмішка)
-              current.mouthLeft = Math.max(0, (baseline.mouthLeftY - mouthLeft.y) / normFactor);
-              current.mouthRight = Math.max(0, (baseline.mouthRightY - mouthRight.y) / normFactor);
-              
-              // Оновлюємо максимуми
-              updateMax();
-              
-              // Додаємо в історію
-              addToHistory();
-              
-              // Малюємо графік
-              drawGraph();
-              
-              // Візуалізація: виділяємо ключові точки більшим розміром залежно від активності
-              ctx.fillStyle = '#ff7d00';
-              ctx.strokeStyle = '#d4a373';
-              ctx.lineWidth = 2;
-              
-              const drawHighlight = (pt, val) => {
-                const x = pt.x, y = pt.y;
-                const r = 5 + val * 100; // розмір пропорційно активності
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, 2 * Math.PI);
-                ctx.fillStyle = '#ff7d00';
-                ctx.fill();
-                ctx.strokeStyle = '#e8c66e';
-                ctx.stroke();
-              };
-              
-              drawHighlight(browLeft, current.browLeft);
-              drawHighlight(browRight, current.browRight);
-              drawHighlight(leftEyeUpper, current.eyeLeft);
-              drawHighlight(rightEyeUpper, current.eyeRight);
-              drawHighlight(mouthLeft, current.mouthLeft);
-              drawHighlight(mouthRight, current.mouthRight);
-            } else {
-              statusEl.textContent = '😐 Обличчя виявлено. Натисніть "Калібрувати спокій".';
-            }
-            
-            updateUI();
-          } catch (e) {
-            console.warn('Помилка обробки точок:', e);
-          }
-        } else {
-          // Обличчя не виявлено
-          ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-          statusEl.textContent = '😕 Обличчя не виявлено.';
+
+        let maxValues = {
+            browLeft: 0, browRight: 0,
+            eyeLeft: 0, eyeRight: 0,
+            mouthLeft: 0, mouthRight: 0
+        };
+
+        const historyLength = 60;
+        let history = {
+            browLeft: [], browRight: [],
+            eyeLeft: [], eyeRight: [],
+            mouthLeft: [], mouthRight: []
+        };
+
+        const IDX = {
+            LEFT_EYE_OUTER: 33, RIGHT_EYE_OUTER: 263,
+            LEFT_BROW: 105, RIGHT_BROW: 334,
+            LEFT_EYE_UPPER: 34, LEFT_EYE_LOWER: 94,
+            RIGHT_EYE_UPPER: 264, RIGHT_EYE_LOWER: 394,
+            LEFT_MOUTH: 61, RIGHT_MOUTH: 291
+        };
+
+        // ---------- Функції ----------
+        async function initAI() {
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+                    delegate: "GPU"
+                },
+                outputFaceBlendshapes: true,
+                runningMode: "VIDEO",
+                numFaces: 1
+            });
+            startCamera();
+            video.addEventListener("loadeddata", renderLoop);
         }
-      }
-      
-      // ---------- Ініціалізація FaceMesh ----------
-      function initFaceMesh() {
-        faceMesh = new FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-        });
-        
-        faceMesh.setOptions({
-          maxNumFaces: 1,
-          refineLandmarks: true,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-        
-        faceMesh.onResults(onResults);
-      }
-      
-      // ---------- Запуск камери ----------
-      async function startCamera() {
-        if (isCameraRunning) return;
-        
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = stream;
-          
-          await new Promise((resolve) => {
-            video.onloadedmetadata = () => {
-              video.play();
-              resolve();
+
+        async function startCamera() {
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: isFrontCamera ? "user" : "environment" }
+                });
+                video.srcObject = stream;
+                [video, canvas].forEach(el => {
+                    if (isFrontCamera) el.classList.add('mirror');
+                    else el.classList.remove('mirror');
+                });
+            } catch (err) {
+                alert('Помилка камери: ' + err.message);
+            }
+        }
+
+        function renderLoop() {
+            if (isFrozen) return requestAnimationFrame(renderLoop);
+            if (video.videoWidth && video.videoHeight) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                if (faceLandmarker) {
+                    const results = faceLandmarker.detectForVideo(video, performance.now());
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+                        const landmarks = results.faceLandmarks[0];
+                        const shapes = results.faceBlendshapes[0].categories;
+                        computeMertz(shapes);
+                        updateMetrics(landmarks, shapes);
+                        if (meshMode) drawMesh(landmarks);
+                        if (mimicMode) drawMimicHeatmap(landmarks, current);
+                        if (botoxMode) drawBotox(landmarks);
+                        updateUI();
+                        addToHistory();
+                        drawGraph();
+                    } else {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    }
+                }
+            }
+            requestAnimationFrame(renderLoop);
+        }
+
+        function computeMertz(shapes) {
+            const get = (name) => shapes.find(s => s.categoryName === name)?.score || 0;
+            const browUp = get('browInnerUp') * 2;
+            const browDown = get('browDownLeft') + get('browDownRight');
+            const squint = get('eyeSquintLeft') + get('eyeSquintRight');
+            const blink = get('eyeBlinkLeft') + get('eyeBlinkRight');
+            const cleanSquint = blink > 0.5 ? 0 : squint;
+            let score = Math.min(4, Math.round((browUp + browDown + cleanSquint) * 2.2));
+            mertzSpan.innerText = score;
+            mertzSpan.style.color = score >= 3 ? '#ff3030' : (score >= 1 ? '#ffd700' : '#00ffcc');
+            alertBadge.style.display = score >= 3 ? 'block' : 'none';
+        }
+
+        function updateMetrics(landmarks, shapes) {
+            const getPoint = (idx) => {
+                const p = landmarks[idx];
+                return { x: p.x * canvas.width, y: p.y * canvas.height };
             };
-          });
-          
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
-          camera = new Camera(video, {
-            onFrame: async () => {
-              if (faceMesh) {
-                await faceMesh.send({ image: video });
-              }
-            },
-            width: video.videoWidth,
-            height: video.videoHeight
-          });
-          
-          camera.start();
-          isCameraRunning = true;
-          statusEl.textContent = '📷 Камеру запущено. Чекаємо на обличчя...';
-          startBtn.disabled = true;
-          startBtn.style.opacity = 0.5;
-        } catch (err) {
-          statusEl.textContent = '❌ Помилка доступу до камери: ' + err.message;
+            try {
+                const leftEyeOuter = getPoint(IDX.LEFT_EYE_OUTER);
+                const rightEyeOuter = getPoint(IDX.RIGHT_EYE_OUTER);
+                const eyeDist = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y);
+                
+                const browLeft = getPoint(IDX.LEFT_BROW);
+                const browRight = getPoint(IDX.RIGHT_BROW);
+                const leftEyeUpper = getPoint(IDX.LEFT_EYE_UPPER);
+                const leftEyeLower = getPoint(IDX.LEFT_EYE_LOWER);
+                const rightEyeUpper = getPoint(IDX.RIGHT_EYE_UPPER);
+                const rightEyeLower = getPoint(IDX.RIGHT_EYE_LOWER);
+                const mouthLeft = getPoint(IDX.LEFT_MOUTH);
+                const mouthRight = getPoint(IDX.RIGHT_MOUTH);
+                
+                if (shouldCalibrate && eyeDist > 0) {
+                    baseline.eyeDistance = eyeDist;
+                    baseline.browLeftY = browLeft.y;
+                    baseline.browRightY = browRight.y;
+                    baseline.eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
+                    baseline.eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
+                    baseline.mouthLeftY = mouthLeft.y;
+                    baseline.mouthRightY = mouthRight.y;
+                    shouldCalibrate = false;
+                    resetMax();
+                }
+                
+                if (baseline.eyeDistance && baseline.eyeDistance > 0) {
+                    const norm = baseline.eyeDistance;
+                    current.browLeft = Math.max(0, (baseline.browLeftY - browLeft.y) / norm);
+                    current.browRight = Math.max(0, (baseline.browRightY - browRight.y) / norm);
+                    
+                    const eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
+                    const eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
+                    
+                    const blinkLeft = shapes.find(s => s.categoryName === 'eyeBlinkLeft')?.score || 0;
+                    const blinkRight = shapes.find(s => s.categoryName === 'eyeBlinkRight')?.score || 0;
+                    
+                    current.eyeLeft = blinkLeft > 0.5 ? 0 : Math.max(0, (baseline.eyeLeftDist - eyeLeftDist) / norm);
+                    current.eyeRight = blinkRight > 0.5 ? 0 : Math.max(0, (baseline.eyeRightDist - eyeRightDist) / norm);
+                    
+                    current.mouthLeft = Math.max(0, (baseline.mouthLeftY - mouthLeft.y) / norm);
+                    current.mouthRight = Math.max(0, (baseline.mouthRightY - mouthRight.y) / norm);
+                    
+                    for (let key in current) {
+                        if (current[key] > maxValues[key]) maxValues[key] = current[key];
+                    }
+                }
+            } catch (e) {}
         }
-      }
-      
-      // ---------- Калібрування ----------
-      function calibrate() {
-        if (!isCameraRunning) {
-          statusEl.textContent = '⚠️ Спочатку запустіть камеру.';
-          return;
+
+        function resetMax() {
+            for (let key in maxValues) maxValues[key] = 0;
         }
-        shouldCalibrate = true;
-        statusEl.textContent = '⚙️ Калібрування... Зафіксуйте спокійний вираз обличчя.';
-      }
-      
-      // ---------- Збереження сесії в localStorage ----------
-      function saveSession() {
-        const session = {
-          timestamp: new Date().toISOString(),
-          maxValues: { ...maxValues }
-        };
-        
-        let sessions = JSON.parse(localStorage.getItem('facial_sessions') || '[]');
-        sessions.push(session);
-        localStorage.setItem('facial_sessions', JSON.stringify(sessions));
-        
-        alert('✅ Сесію збережено в localStorage!');
-      }
-      
-      // ---------- Фото до/після ----------
-      function takePhoto(target) {
-        if (!isCameraRunning) {
-          alert('Камера не запущена!');
-          return;
+
+        function updateUI() {
+            // Створюємо картки, якщо треба
+            const grid = document.getElementById('metricsGrid');
+            if (grid.children.length === 0) {
+                const names = {
+                    browLeft: 'Ліва брова', browRight: 'Права брова',
+                    eyeLeft: 'Око (ліве)', eyeRight: 'Око (праве)',
+                    mouthLeft: 'Куток рота (л)', mouthRight: 'Куток рота (пр)'
+                };
+                let html = '';
+                for (let key in names) {
+                    html += `
+                        <div class="metric-card" id="card_${key}">
+                            <h4>${names[key]}</h4>
+                            <div class="metric-value" id="val_${key}">0.000</div>
+                            <div class="metric-max">макс <span id="max_${key}">0.000</span></div>
+                        </div>
+                    `;
+                }
+                grid.innerHTML = html;
+            }
+            // Оновлюємо значення
+            for (let key in current) {
+                const valEl = document.getElementById(`val_${key}`);
+                const maxEl = document.getElementById(`max_${key}`);
+                if (valEl) valEl.innerText = current[key].toFixed(3);
+                if (maxEl) maxEl.innerText = maxValues[key].toFixed(3);
+            }
         }
-        // Робимо знімок з canvas (на якому вже є розмітка)
-        const dataURL = canvas.toDataURL('image/png');
-        if (target === 'before') {
-          photoBeforeDataURL = dataURL;
-          document.getElementById('photoBefore').src = dataURL;
-        } else {
-          photoAfterDataURL = dataURL;
-          document.getElementById('photoAfter').src = dataURL;
+
+        function addToHistory() {
+            for (let key in history) {
+                history[key].push(current[key]);
+                if (history[key].length > historyLength) history[key].shift();
+            }
         }
-      }
-      
-      // ---------- Обробники подій ----------
-      startBtn.addEventListener('click', startCamera);
-      calibrateBtn.addEventListener('click', calibrate);
-      resetMaxBtn.addEventListener('click', resetMax);
-      saveSessionBtn.addEventListener('click', saveSession);
-      photoBeforeBtn.addEventListener('click', () => takePhoto('before'));
-      photoAfterBtn.addEventListener('click', () => takePhoto('after'));
-      
-      // ---------- Ініціалізація при завантаженні ----------
-      initFaceMesh();
-      
-      window.addEventListener('beforeunload', () => {
-        if (camera) camera.stop();
-        if (video.srcObject) {
-          video.srcObject.getTracks().forEach(track => track.stop());
+
+        function drawGraph() {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            let maxVal = 0.05;
+            for (let key in history) {
+                const arr = history[key];
+                if (arr.length > 0) {
+                    const m = Math.max(...arr);
+                    if (m > maxVal) maxVal = m;
+                }
+            }
+            if (maxVal < 0.01) maxVal = 0.01;
+            const w = graphCanvas.width, h = graphCanvas.height, xStep = w / (historyLength - 1);
+            const colors = {
+                browLeft: '#00ffcc', browRight: '#ffd700',
+                eyeLeft: '#ff7d00', eyeRight: '#ffaa00',
+                mouthLeft: '#cbaacb', mouthRight: '#aaccdd'
+            };
+            for (let key in history) {
+                const arr = history[key];
+                if (arr.length < 2) continue;
+                graphCtx.beginPath();
+                graphCtx.strokeStyle = colors[key] || '#fff';
+                graphCtx.lineWidth = 2;
+                for (let i = 0; i < arr.length; i++) {
+                    const x = i * xStep;
+                    const y = h - (arr[i] / maxVal) * h * 0.9;
+                    if (i === 0) graphCtx.moveTo(x, y);
+                    else graphCtx.lineTo(x, y);
+                }
+                graphCtx.stroke();
+            }
         }
-      });
-      
-      // Очистити історію графіка при калібруванні (додатково)
-      // Для цього можна додати в calibrate скидання історії:
-      const originalCalibrate = calibrate;
-      calibrate = function() {
-        originalCalibrate();
-        // Очистити історію
-        for (let key in history) {
-          history[key] = [];
+
+        function drawMesh(landmarks) {
+            new DrawingUtils(ctx).drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: '#ffffff20', lineWidth: 0.8 });
         }
-        drawGraph();
-      };
-      calibrateBtn.removeEventListener('click', calibrate);
-      calibrateBtn.addEventListener('click', calibrate);
-      
-    })();
-  </script>
+
+        function drawMimicHeatmap(landmarks, cur) {
+            const points = [
+                { idx: IDX.LEFT_BROW, val: cur.browLeft },
+                { idx: IDX.RIGHT_BROW, val: cur.browRight },
+                { idx: IDX.LEFT_EYE_UPPER, val: cur.eyeLeft },
+                { idx: IDX.RIGHT_EYE_UPPER, val: cur.eyeRight },
+                { idx: IDX.LEFT_MOUTH, val: cur.mouthLeft },
+                { idx: IDX.RIGHT_MOUTH, val: cur.mouthRight }
+            ];
+            points.forEach(p => {
+                if (p.val < 0.01) return;
+                const pt = landmarks[p.idx];
+                const x = pt.x * canvas.width;
+                const y = pt.y * canvas.height;
+                const intensity = Math.min(0.8, p.val * 10);
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = p.val > 0.2 ? '#ff3030' : '#00ffcc';
+                ctx.beginPath();
+                ctx.arc(x, y, 12 + p.val * 80, 0, Math.PI * 2);
+                ctx.fillStyle = p.val > 0.2 ? `rgba(255,48,48,${intensity})` : `rgba(0,255,204,${intensity})`;
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function drawBotox(landmarks) {
+            ctx.save();
+            ctx.filter = 'blur(15px) brightness(1.1)';
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath();
+            const area = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67];
+            for (let i = 0; i < area.length; i++) {
+                const p = landmarks[area[i]];
+                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
+                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
+            }
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function takePhoto(target) {
+            const dataURL = canvas.toDataURL('image/png');
+            if (target === 'before') document.getElementById('photoBefore').src = dataURL;
+            else document.getElementById('photoAfter').src = dataURL;
+        }
+
+        function saveSession() {
+            const session = {
+                timestamp: new Date().toISOString(),
+                maxValues: { ...maxValues },
+                mertz: mertzSpan.innerText
+            };
+            let sessions = JSON.parse(localStorage.getItem('beauty_sessions') || '[]');
+            sessions.push(session);
+            localStorage.setItem('beauty_sessions', JSON.stringify(sessions));
+            alert('✅ Сесію збережено');
+        }
+
+        // ---------- Управління панеллю ----------
+        function togglePanel() {
+            panelOpen = !panelOpen;
+            if (panelOpen) bottomSheet.classList.add('open');
+            else bottomSheet.classList.remove('open');
+        }
+
+        sheetHandle.addEventListener('click', togglePanel);
+
+        // ---------- Інші обробники ----------
+        btnCam.addEventListener('click', () => { isFrontCamera = !isFrontCamera; startCamera(); });
+        btnFreeze.addEventListener('click', () => { isFrozen = !isFrozen; btnFreeze.classList.toggle('active'); });
+        btnMesh.addEventListener('click', () => { meshMode = !meshMode; btnMesh.classList.toggle('active'); });
+        btnMimic.addEventListener('click', () => { mimicMode = !mimicMode; btnMimic.classList.toggle('active'); });
+        btnBotox.addEventListener('click', () => { botoxMode = !botoxMode; btnBotox.classList.toggle('active'); });
+        resetMaxBtn.addEventListener('click', resetMax);
+        saveSessionBtn.addEventListener('click', saveSession);
+        photoBeforeBtn.addEventListener('click', () => takePhoto('before'));
+        photoAfterBtn.addEventListener('click', () => takePhoto('after'));
+
+        // ---------- Старт ----------
+        initAI();
+    </script>
 </body>
 </html>
