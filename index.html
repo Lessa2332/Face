@@ -8,9 +8,8 @@
         :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; }
         body { margin: 0; background: #0a0a0a; color: white; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
         
-        /* UI Elements */
-        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content:建设; align-items: center; }
-        .header { background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 0 0 20px 20px; border: 1px solid var(--accent); pointer-events: auto; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; align-items: center; }
+        .header { background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 0 0 20px 20px; border: 1px solid var(--accent); pointer-events: auto; text-align: center; }
         .controls { position: fixed; bottom: 30px; display: flex; gap: 15px; pointer-events: auto; }
         
         button { 
@@ -61,7 +60,6 @@
         let isBotoxMode = false;
         let isMeshMode = true;
 
-        // UI Listeners
         document.getElementById('btn-mesh').onclick = (e) => { isMeshMode = !isMeshMode; e.target.classList.toggle('active'); };
         document.getElementById('btn-botox').onclick = (e) => { isBotoxMode = !isBotoxMode; e.target.classList.toggle('active'); };
 
@@ -93,22 +91,20 @@
                     const landmarks = results.faceLandmarks[0];
                     const drawingUtils = new DrawingUtils(canvasCtx);
 
-                    // 1. АНАЛІЗ АКТИВНОСТІ (Відстань між внутрішніми кутами брів)
-                    const p1 = landmarks[52]; // Ліва брова
-                    const p2 = landmarks[282]; // Права брова
+                    // 1. АНАЛІЗ АКТИВНОСТІ
+                    const p1 = landmarks[52]; 
+                    const p2 = landmarks[282]; 
                     const distance = Math.hypot(p1.x - p2.x, p1.y - p2.y);
                     
-                    // Якщо відстань скорочується (хмуримось), активуємо попередження
                     if (distance < 0.08) { alertElement.style.display = "block"; } 
                     else { alertElement.style.display = "none"; }
 
-                    // 2. ВІЗУАЛІЗАЦІЯ
+                    // 2. ВІЗУАЛІЗАЦІЯ АНАТОМІЇ
                     if (isMeshMode) {
-                        // Малюємо сітку
                         drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#C0C0C030", lineWidth: 0.5 });
                         drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_CONTOUR, { color: "#00ffcc", lineWidth: 1 });
                         
-                        // Золоті точки ін'єкцій (Glabella)
+                        // Золоті точки (Міжбрів'я)
                         [9, 8, 168].forEach(idx => {
                             const p = landmarks[idx];
                             canvasCtx.fillStyle = "#ffd700";
@@ -118,21 +114,41 @@
                             canvasCtx.fill();
                         });
                         canvasCtx.shadowBlur = 0;
+
+                        // Діагностичні точки (Гусячі лапки)
+                        const eyeZones = [33, 133, 362, 263];
+                        eyeZones.forEach(idx => {
+                            const p = landmarks[idx];
+                            canvasCtx.fillStyle = "rgba(0, 255, 204, 0.5)";
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, 2 * Math.PI);
+                            canvasCtx.fill();
+                        });
                     }
 
+                    // 3. СИМУЛЯЦІЯ BOTOX
                     if (isBotoxMode) {
-                        // СИМУЛЯЦІЯ: Накладаємо м'яку маску на чоло
+                        // Маска на чоло
                         const foreheadPoints = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 109];
                         canvasCtx.beginPath();
                         canvasCtx.moveTo(landmarks[10].x * canvas.width, landmarks[10].y * canvas.height);
                         foreheadPoints.forEach(idx => canvasCtx.lineTo(landmarks[idx].x * canvas.width, landmarks[idx].y * canvas.height));
                         canvasCtx.closePath();
-                        
-                        // Ефект розгладження (напівпрозорий "тональний" ефект)
                         canvasCtx.fillStyle = "rgba(255, 230, 220, 0.4)";
                         canvasCtx.filter = "blur(10px)";
                         canvasCtx.fill();
                         canvasCtx.filter = "none";
+
+                        // Маски на кути очей
+                        [33, 263].forEach(idx => {
+                            const p = landmarks[idx];
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(p.x * canvas.width, p.y * canvas.height, 35, 0, 2 * Math.PI);
+                            canvasCtx.fillStyle = "rgba(255, 230, 220, 0.3)";
+                            canvasCtx.filter = "blur(15px)";
+                            canvasCtx.fill();
+                            canvasCtx.filter = "none";
+                        });
                     }
                 }
             }
