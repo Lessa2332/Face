@@ -3,189 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Beauty | AI Mimicry Analysis</title>
+    <title>Smart Beauty AI | PDF Report Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; --panel-bg: rgba(10, 10, 10, 0.85); }
-        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+        :root { --accent: #00ffcc; --danger: #ff3030; --panel-bg: rgba(10, 10, 10, 0.9); }
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        #container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #container { position: relative; width: 100vw; height: 100vh; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-
-        /* UI Elements */
-        .overlay { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
-        .interactive { pointer-events: auto; }
 
         .side-panel { 
             position: absolute; right: 20px; top: 50%; transform: translateY(-50%); 
             background: var(--panel-bg); padding: 20px; border-radius: 24px; 
-            border: 1px solid rgba(0, 255, 204, 0.3); width: 260px; backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 204, 0.3); width: 260px; z-index: 20;
         }
 
-        .mertz-box { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 20px; border: 1px solid var(--accent); }
-        .mertz-val { font-size: 3rem; font-weight: 800; color: var(--accent); display: block; }
+        .mertz-box { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; border: 1px solid var(--accent); }
+        .mertz-val { font-size: 2.5rem; font-weight: 800; color: var(--accent); }
         
-        .status-tag { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: var(--danger); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; letter-spacing: 1px; display: none; animation: blink 0.8s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        button { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); color: white; padding: 12px; width: 100%; border-radius: 12px; margin-top: 8px; cursor: pointer; transition: 0.3s; font-size: 0.9rem; text-align: left; }
+        button { background: rgba(255,255,255,0.1); border: 1px solid var(--accent); color: white; padding: 12px; width: 100%; border-radius: 12px; margin-top: 8px; cursor: pointer; transition: 0.3s; }
         button.active { background: var(--accent); color: black; font-weight: bold; }
-        button:hover { background: rgba(0, 255, 204, 0.2); }
-
-        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
+        
+        #capture-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; z-index: 100; pointer-events: none; }
+        
+        .brand-logo { width: 50px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="loader" class="loader">
-        <div style="border: 4px solid #333; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-        <p>Завантаження AI моделей...</p>
-    </div>
+    <div id="capture-flash"></div>
 
     <div id="container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
         
-        <div class="overlay">
-            <div id="hyper-alert" class="status-tag">ГІПЕРАКТИВНІСТЬ ВИЯВЛЕНА</div>
-            
-            <div class="side-panel interactive">
-                <div class="mertz-box">
-                    <span id="txt-mertz-label" style="font-size: 0.7rem; opacity: 0.7; text-transform: uppercase;">Шкала Mertz (Динамічна)</span>
-                    <span id="mertz-display" class="mertz-val">0</span>
-                    <div id="mertz-desc" style="font-size: 0.8rem; margin-top: 5px;">Спокій</div>
-                </div>
-
-                <div style="font-size: 0.65rem; color: var(--accent); margin-bottom: 10px; letter-spacing: 1px;">РЕЖИМИ ВІЗУАЛІЗАЦІЇ</div>
-                <button id="btn-mimic" class="active">Аналіз міміки (On-device)</button>
-                <button id="btn-botox">Симуляція Botox (Після)</button>
-                <button id="btn-anatomy">Анатомічна сітка м'язів</button>
-                <button id="btn-capture" style="border-color: #fff; margin-top: 20px;">Зберегти звіт (Capture)</button>
+        <div class="side-panel">
+            <img src="logo.png" alt="Smart Beauty" class="brand-logo" onerror="this.style.display='none'">
+            <div class="mertz-box">
+                <span style="font-size: 0.7rem; opacity: 0.7; text-transform: uppercase;">Шкала Mertz</span>
+                <div id="mertz-display" class="mertz-val">0</div>
             </div>
+
+            <button id="btn-botox">Симуляція Botox (AR)</button>
+            <button id="btn-anatomy">Анатомічна сітка</button>
+            <button id="btn-pdf" style="background: var(--accent); color: #000; font-weight: bold; margin-top: 20px;">📄 ГЕНЕРУВАТИ PDF ЗВІТ</button>
         </div>
     </div>
 
     <script type="module">
         import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
+        const { jsPDF } = window.jspdf;
         const video = document.getElementById("webcam");
         const canvasElement = document.getElementById("output_canvas");
         const canvasCtx = canvasElement.getContext("2d");
-        const mertzDisplay = document.getElementById("mertz-display");
-        const hyperAlert = document.getElementById("hyper-alert");
         
         let faceLandmarker;
-        let runningMode = "VIDEO";
         let botoxMode = false;
         let anatomyMode = false;
+        let currentMertz = 0;
+        let currentLandmarks = null;
 
-        // Ініціалізація MediaPipe
-        async function setupAI() {
-            const filesetResolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                    delegate: "GPU"
-                },
-                outputFaceBlendshapes: true,
-                runningMode,
-                numFaces: 1
+        async function init() {
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
+                outputFaceBlendshapes: true, runningMode: "VIDEO", numFaces: 1
             });
-            document.getElementById("loader").style.display = "none";
-            startCamera();
-        }
-
-        function startCamera() {
-            navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } }).then((stream) => {
-                video.srcObject = stream;
-                video.addEventListener("loadeddata", predictWebcam);
+            navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } }).then(s => {
+                video.srcObject = s;
+                video.addEventListener("loadeddata", renderLoop);
             });
         }
 
-        let lastVideoTime = -1;
-        async function predictWebcam() {
+        async function renderLoop() {
             canvasElement.width = video.videoWidth;
             canvasElement.height = video.videoHeight;
 
-            if (lastVideoTime !== video.currentTime) {
-                lastVideoTime = video.currentTime;
-                const results = faceLandmarker.detectForVideo(video, performance.now());
+            const results = faceLandmarker.detectForVideo(video, performance.now());
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+                currentLandmarks = results.faceLandmarks[0];
+                const blendshapes = results.faceBlendshapes[0].categories;
+                
+                // Розрахунок Mertz
+                const browDown = blendshapes.find(b => b.categoryName === "browDownLeft").score + 
+                                 blendshapes.find(b => b.categoryName === "browDownRight").score;
+                currentMertz = Math.min(Math.round(browDown * 4), 4);
+                document.getElementById("mertz-display").innerText = currentMertz;
 
-                if (results.faceLandmarks) {
-                    for (const landmarks of results.faceLandmarks) {
-                        processMimicry(results.faceBlendshapes[0].categories, landmarks);
-                    }
+                const draw = new DrawingUtils(canvasCtx);
+                if (anatomyMode) draw.drawConnectors(currentLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff30" });
+
+                if (botoxMode) {
+                    applyBotoxEffect(currentLandmarks);
                 }
             }
-            requestAnimationFrame(predictWebcam);
+            requestAnimationFrame(renderLoop);
         }
 
-        function processMimicry(blendshapes, landmarks) {
-            // Вилучаємо ключові м'язи: нахмурювання (Brow Down) та усмішка (Smile)
-            const browDown = blendshapes.find(b => b.categoryName === "browDownLeft").score + 
-                             blendshapes.find(b => b.categoryName === "browDownRight").score;
-            const eyeSquint = blendshapes.find(b => b.categoryName === "eyeSquintLeft").score;
-
-            // Розрахунок шкали Mertz (0-4) на основі напруження м'язів
-            let mertzScore = Math.min(Math.round(browDown * 4), 4);
-            mertzDisplay.innerText = mertzScore;
-            
-            // Візуалізація гіперактивності
-            if (mertzScore >= 3) {
-                hyperAlert.style.display = "block";
-                mertzDisplay.style.color = "var(--danger)";
-            } else {
-                hyperAlert.style.display = "none";
-                mertzDisplay.style.color = "var(--accent)";
-            }
-
-            const drawingUtils = new DrawingUtils(canvasCtx);
-
-            if (anatomyMode) {
-                drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#C0C0C070", lineWidth: 1 });
-            }
-
-            if (botoxMode) {
-                // Симуляція "Після": Розгладжуємо зони, де виявлено рух
-                canvasCtx.save();
-                canvasCtx.filter = "blur(12px) brightness(1.1)";
-                // Малюємо "маску" ботоксу на лобі та біля очей
-                drawSmoothingZone(landmarks, [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 10]);
-                canvasCtx.restore();
-            } else {
-                // Режим діагностики: Підсвічуємо активні зморшки червоним
-                if (browDown > 0.4) {
-                    drawActiveZone(landmarks, [9, 8, 168, 6], "rgba(255, 48, 48, 0.5)");
-                }
-            }
-        }
-
-        function drawActiveZone(landmarks, indices, color) {
-            canvasCtx.fillStyle = color;
-            canvasCtx.beginPath();
-            indices.forEach((idx, i) => {
-                const x = landmarks[idx].x * canvasElement.width;
-                const y = landmarks[idx].y * canvasElement.height;
-                if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
-            });
-            canvasCtx.fill();
-        }
-
-        function drawSmoothingZone(landmarks, indices) {
+        function applyBotoxEffect(landmarks) {
+            canvasCtx.save();
+            canvasCtx.filter = "blur(15px) brightness(1.1)";
             canvasCtx.fillStyle = "rgba(255, 255, 255, 0.2)";
+            const forehead = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 10];
             canvasCtx.beginPath();
-            indices.forEach((idx, i) => {
+            forehead.forEach((idx, i) => {
                 const x = landmarks[idx].x * canvasElement.width;
                 const y = landmarks[idx].y * canvasElement.height;
                 if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
             });
-            canvasCtx.closePath();
             canvasCtx.fill();
+            canvasCtx.restore();
         }
 
-        // Керування кнопками
+        // Кнопка PDF
+        document.getElementById("btn-pdf").onclick = async () => {
+            const flash = document.getElementById("capture-flash");
+            flash.style.display = "block";
+            setTimeout(() => flash.style.display = "none", 100);
+
+            // 1. Захоплюємо "До" (без ефектів)
+            const oldBotox = botoxMode;
+            botoxMode = false;
+            await new Promise(r => setTimeout(r, 100));
+            const imgBefore = captureFrame();
+
+            // 2. Захоплюємо "Після" (з ефектом)
+            botoxMode = true;
+            await new Promise(r => setTimeout(r, 100));
+            const imgAfter = captureFrame();
+            botoxMode = oldBotox;
+
+            // 3. Створюємо PDF
+            const doc = new jsPDF();
+            
+            // Додаємо лого
+            try { doc.addImage('logo.png', 'PNG', 15, 10, 20, 20); } catch(e) {}
+            
+            doc.setFontSize(22);
+            doc.text("Smart Beauty Diagnostic Report", 40, 25);
+            
+            doc.setFontSize(12);
+            doc.text(`Дата: ${new Date().toLocaleDateString()}`, 15, 40);
+            doc.text(`Ступінь гіперактивності (Mertz): ${currentMertz}/4`, 15, 48);
+            
+            doc.setFontSize(14);
+            doc.text("ДО (Активна міміка)", 15, 65);
+            doc.addImage(imgBefore, 'JPEG', 15, 70, 85, 110);
+            
+            doc.text("ПІСЛЯ (Симуляція Botox)", 110, 65);
+            doc.addImage(imgAfter, 'JPEG', 110, 70, 85, 110);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Цей звіт сформовано AI Smart Beauty. Не є медичним висновком.", 15, 190);
+
+            doc.save(`SmartBeauty_Report_${Date.now()}.pdf`);
+        };
+
+        function captureFrame() {
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = canvasElement.width;
+            tempCanvas.height = canvasElement.height;
+            const ctx = tempCanvas.getContext("2d");
+            
+            // Малюємо відео + оверлей
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, -tempCanvas.width, 0, tempCanvas.width, tempCanvas.height);
+            ctx.scale(-1, 1);
+            ctx.drawImage(canvasElement, 0, 0);
+            
+            return tempCanvas.toDataURL("image/jpeg", 0.8);
+        }
+
         document.getElementById("btn-botox").onclick = (e) => {
             botoxMode = !botoxMode;
             e.target.classList.toggle("active");
@@ -195,7 +188,7 @@
             e.target.classList.toggle("active");
         };
 
-        setupAI();
+        init();
     </script>
 </body>
 </html>
