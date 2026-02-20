@@ -1,205 +1,516 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Beauty AI Analyzer</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <style>
-        :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; --panel-bg: rgba(10, 10, 10, 0.95); }
-        body { margin: 0; background: #000; color: white; font-family: -apple-system, sans-serif; overflow: hidden; position: fixed; width: 100%; height: 100%; }
-        
-        #container { position: relative; width: 100vw; height: 100vh; }
-        video, #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        .mirror { transform: scaleX(-1); }
-
-        /* Панель керування */
-        .side-panel { 
-            position: absolute; right: 0; top: 0; height: 100%; width: 280px;
-            background: var(--panel-bg); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 100; border-left: 1px solid rgba(0, 255, 204, 0.3); display: flex; flex-direction: column;
-        }
-        .side-panel.collapsed { transform: translateX(280px); }
-        
-        .toggle-tab {
-            position: absolute; left: -45px; top: 50%; transform: translateY(-50%);
-            width: 45px; height: 80px; background: var(--panel-bg); border: 1px solid rgba(0, 255, 204, 0.3);
-            border-right: none; border-radius: 20px 0 0 20px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; color: var(--accent);
-        }
-
-        .brand-header { padding: 25px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .brand-logo { width: 45px; height: 45px; border-radius: 12px; object-fit: cover; border: 1px solid var(--accent); }
-        
-        .scroll-content { padding: 20px; flex-grow: 1; overflow-y: auto; }
-        .mertz-box { background: rgba(0, 255, 204, 0.05); border-radius: 20px; padding: 20px; text-align: center; border: 1px solid rgba(0, 255, 204, 0.3); }
-        .mertz-num { font-size: 3.5rem; font-weight: 800; line-height: 1; }
-
-        button.action-btn { 
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 255, 204, 0.3); color: white; 
-            padding: 15px; border-radius: 14px; margin-top: 10px; width: 100%; text-align: left; font-size: 0.9rem; cursor: pointer;
-        }
-        button.active { background: var(--accent) !important; color: black !important; font-weight: bold; }
-        
-        .top-controls { position: absolute; top: 25px; left: 20px; display: flex; gap: 12px; z-index: 50; }
-        .icon-btn { background: var(--panel-bg); border: 1px solid var(--accent); color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-
-        .alert-badge { 
-            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
-            background: var(--danger); padding: 6px 18px; border-radius: 20px; font-weight: bold; display: none; z-index: 40;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Косметологічний аналізатор міміки</title>
+  
+  <!-- Шрифти (з попереднього проєкту) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ============ СТИЛІ (адаптовано з попереднього проєкту) ============ */
+    :root {
+      --bg-dark: #121212;
+      --bg-card: rgba(30, 30, 30, 0.9);
+      --gold-accent: #d4a373;
+      --gold-bright: #e8c66e;
+      --text-light: #f5f5f5;
+      --font-heading: 'Cormorant Garamond', serif;
+      --font-body: 'Open Sans', sans-serif;
+      --shadow-lg: 0 15px 35px rgba(0,0,0,0.6);
+      --shadow-md: 0 8px 25px rgba(0,0,0,0.4);
+      --transition: all 0.3s ease;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-dark);
+      color: var(--text-light);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+    }
+    
+    /* Заголовок */
+    .header {
+      text-align: center;
+      padding: 30px 15px;
+      background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
+      border-radius: 0 0 40px 40px;
+      margin-bottom: 30px;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+    }
+    
+    .header h1 {
+      font-size: 32px;
+      color: var(--gold-accent);
+      font-family: var(--font-heading);
+      letter-spacing: 1px;
+    }
+    
+    .header p {
+      font-size: 18px;
+      color: var(--text-light);
+      max-width: 600px;
+      margin: 15px auto 0;
+    }
+    
+    /* Картка камери */
+    .camera-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(5px);
+      border: 2px solid var(--gold-accent);
+      border-radius: 30px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: var(--shadow-md);
+    }
+    
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      border-radius: 20px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      background: #2a2a2a;
+    }
+    
+    #video, #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    #video {
+      filter: brightness(0.9);
+    }
+    
+    /* Панель управління */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin: 20px 0 10px;
+    }
+    
+    .btn {
+      padding: 12px 28px;
+      background: transparent;
+      border: 2px solid var(--gold-accent);
+      color: var(--gold-accent);
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 40px;
+      transition: var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .btn:hover {
+      background: var(--gold-accent);
+      color: #121212;
+    }
+    
+    .btn:active {
+      transform: scale(0.98);
+    }
+    
+    .btn.secondary {
+      border-color: var(--text-light);
+      color: var(--text-light);
+    }
+    
+    .btn.secondary:hover {
+      background: var(--text-light);
+      color: #121212;
+    }
+    
+    /* Вимірювання */
+    .measure-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    
+    .metric-card {
+      background: rgba(20, 20, 20, 0.8);
+      border: 1px solid var(--gold-accent);
+      border-radius: 25px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .metric-card h3 {
+      color: var(--gold-accent);
+      font-family: var(--font-heading);
+      font-size: 22px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--gold-accent);
+      padding-bottom: 8px;
+    }
+    
+    .value {
+      font-size: 48px;
+      font-weight: 600;
+      color: var(--gold-bright);
+      line-height: 1.2;
+    }
+    
+    .unit {
+      font-size: 18px;
+      color: var(--text-light);
+      opacity: 0.8;
+    }
+    
+    .max-value {
+      margin-top: 10px;
+      font-size: 18px;
+      color: var(--text-light);
+    }
+    
+    .max-value span {
+      color: var(--gold-accent);
+      font-weight: 600;
+    }
+    
+    /* Футер */
+    .footer {
+      text-align: center;
+      padding: 30px 20px;
+      background: #1a1a1a;
+      border-top: 2px solid var(--gold-accent);
+      margin-top: 50px;
+    }
+    
+    .footer p {
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    
+    /* Інформація про обличчя */
+    .status {
+      text-align: center;
+      font-size: 16px;
+      margin-top: 15px;
+      padding: 10px;
+      background: #2a2a2a;
+      border-radius: 30px;
+      color: var(--gold-accent);
+    }
+    
+    @media (min-width: 768px) {
+      .header h1 { font-size: 48px; }
+      .measure-panel { grid-template-columns: repeat(2, 1fr); }
+      .btn { font-size: 20px; padding: 14px 35px; }
+    }
+  </style>
 </head>
 <body>
-
-    <div id="activity-alert" class="alert-badge">ГІПЕРАКТИВНІСТЬ</div>
-
-    <div id="container">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="output_canvas"></canvas>
-        
-        <div class="top-controls">
-            <div id="btn-cam" class="icon-btn">🔄</div>
-            <div id="btn-freeze" class="icon-btn">❄️</div>
-        </div>
-
-        <div id="panel" class="side-panel collapsed">
-            <div class="toggle-tab" id="panel-toggle">◀</div>
-            <div class="brand-header">
-                <img src="logo-museum.jpg" class="brand-logo" alt="Logo" onerror="this.src='logo.png'">
-                <span style="font-weight: 800; color: var(--accent); font-size: 0.8rem; text-transform: uppercase;">Smart Beauty AI</span>
-            </div>
-
-            <div class="scroll-content">
-                <div class="mertz-box">
-                    <div id="mertz-val" class="mertz-num">0</div>
-                    <div style="font-size: 0.7rem; opacity: 0.6;">СТУПІНЬ МЕРЦА</div>
-                </div>
-
-                <button id="btn-mesh" class="action-btn active">Анатомічна сітка</button>
-                <button id="btn-mimic" class="action-btn">Карта міміки (Симетрична)</button>
-                <button id="btn-botox" class="action-btn" style="border-color: var(--gold); color: var(--gold);">Симуляція Botox</button>
-                <button id="btn-pdf" class="action-btn" style="background: var(--accent); color: black; border: none; font-weight: bold; margin-top: 20px; text-align: center;">ЗБЕРЕГТИ ЗВІТ</button>
-            </div>
-        </div>
+  <div class="header">
+    <h1>🔬 Аналізатор міміки обличчя</h1>
+    <p>Відстеження активності м’язів чола в реальному часі</p>
+  </div>
+  
+  <div class="container">
+    <!-- Картка з камерою -->
+    <div class="camera-card">
+      <div class="video-wrapper">
+        <video id="video" playsinline autoplay muted></video>
+        <canvas id="canvas"></canvas>
+      </div>
+      
+      <div class="controls">
+        <button class="btn" id="startBtn">▶ Запустити камеру</button>
+        <button class="btn secondary" id="calibrateBtn">⚙️ Калібрувати спокій</button>
+        <button class="btn secondary" id="resetMaxBtn">🔄 Скинути максимуми</button>
+      </div>
+      
+      <div class="status" id="status">Очікування запуску камери...</div>
     </div>
+    
+    <!-- Панель вимірювань -->
+    <div class="measure-panel">
+      <div class="metric-card">
+        <h3>Ліва брова</h3>
+        <div class="value" id="leftValue">0.0</div>
+        <div class="unit">ум. од.</div>
+        <div class="max-value">Макс: <span id="leftMax">0.0</span></div>
+      </div>
+      <div class="metric-card">
+        <h3>Права брова</h3>
+        <div class="value" id="rightValue">0.0</div>
+        <div class="unit">ум. од.</div>
+        <div class="max-value">Макс: <span id="rightMax">0.0</span></div>
+      </div>
+    </div>
+    
+    <!-- Пояснення -->
+    <div style="margin: 30px 0; background: rgba(212,163,115,0.1); border-radius: 30px; padding: 25px;">
+      <h3 style="color: var(--gold-accent); margin-bottom: 15px;">Як це працює</h3>
+      <p>✔️ Після запуску камери на обличчя накладаються 468 ключових точок.<br>
+         ✔️ Натисніть <strong>Калібрувати спокій</strong>, тримаючи обличчя розслабленим — це зафіксує базове положення брів.<br>
+         ✔️ Рухайте бровами вгору: значення покажуть амплітуду підняття відносно спокою.<br>
+         ✔️ Максимальні значення за сесію зберігаються та відображаються поруч.</p>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>© 2025 | Прототип для косметологів | На основі MediaPipe Face Mesh</p>
+  </div>
 
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-
-        const video = document.getElementById("video");
-        const canvas = document.getElementById("output_canvas");
-        const ctx = canvas.getContext("2d");
+  <!-- Підключення MediaPipe через CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  
+  <script>
+    (function() {
+      // Елементи DOM
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const statusEl = document.getElementById('status');
+      
+      // Елементи вимірювань
+      const leftValueEl = document.getElementById('leftValue');
+      const rightValueEl = document.getElementById('rightValue');
+      const leftMaxEl = document.getElementById('leftMax');
+      const rightMaxEl = document.getElementById('rightMax');
+      
+      // Кнопки
+      const startBtn = document.getElementById('startBtn');
+      const calibrateBtn = document.getElementById('calibrateBtn');
+      const resetMaxBtn = document.getElementById('resetMaxBtn');
+      
+      // Змінні для роботи MediaPipe
+      let faceMesh = null;
+      let camera = null;
+      let isCameraRunning = false;
+      
+      // Дані вимірювань
+      let baselineLeftY = null;      // базове положення лівої брови (Y)
+      let baselineRightY = null;     // базове положення правої брови (Y)
+      let currentLeft = 0;
+      let currentRight = 0;
+      let maxLeft = 0;
+      let maxRight = 0;
+      
+      // Індекси ключових точок для брів (внутрішні кінці)
+      const LEFT_BROW = 105;   // ліва брова (внутрішній край)
+      const RIGHT_BROW = 334;  // права брова (внутрішній край)
+      
+      // Функція оновлення UI
+      function updateUI() {
+        leftValueEl.textContent = currentLeft.toFixed(1);
+        rightValueEl.textContent = currentRight.toFixed(1);
+        leftMaxEl.textContent = maxLeft.toFixed(1);
+        rightMaxEl.textContent = maxRight.toFixed(1);
+      }
+      
+      // Обробка результатів FaceMesh
+      function onResults(results) {
+        // Очищаємо canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        let faceLandmarker;
-        let isFrontCamera = false; 
-        let isFrozen = false;
-        let botoxMode = false;
-        let meshMode = true;
-        let mimicMode = false;
-
-        async function initAI() {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
-                outputFaceBlendshapes: true, runningMode: "VIDEO", numFaces: 1
-            });
-            startCamera();
-            video.addEventListener("loadeddata", renderLoop);
-        }
-
-        async function startCamera() {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: isFrontCamera ? "user" : "environment" } });
-            video.srcObject = s;
-            [video, canvas].forEach(el => isFrontCamera ? el.classList.add('mirror') : el.classList.remove('mirror'));
-        }
-
-        function renderLoop() {
-            if (isFrozen) return requestAnimationFrame(renderLoop);
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            const results = faceLandmarker.detectForVideo(video, performance.now());
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-                const landmarks = results.faceLandmarks[0];
-                const shapes = results.faceBlendshapes[0].categories;
-
-                // --- ФІЛЬТРОВАНИЙ РОЗРАХУНОК МЕРЦА ---
-                // Виключаємо eyeBlink, залишаємо лише активні мімічні рухи
-                const browUp = (shapes.find(s => s.categoryName === "browInnerUp").score) * 2;
-                const browDown = (shapes.find(s => s.categoryName === "browDownLeft").score + shapes.find(s => s.categoryName === "browDownRight").score);
-                const squint = (shapes.find(s => s.categoryName === "eyeSquintLeft").score + shapes.find(s => s.categoryName === "eyeSquintRight").score);
-                
-                // Якщо squint викликаний морганням (високий показник eyeBlink), ми його ігноруємо
-                const blink = (shapes.find(s => s.categoryName === "eyeBlinkLeft").score + shapes.find(s => s.categoryName === "eyeBlinkRight").score);
-                const cleanSquint = blink > 0.5 ? 0 : squint;
-
-                const score = Math.min(Math.round((browUp + browDown + cleanSquint) * 2.2), 4);
-                updateMertzUI(score);
-
-                if (meshMode) new DrawingUtils(ctx).drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff10", lineWidth: 0.5 });
-                if (mimicMode) drawSymmetricHeatmap(landmarks, score);
-                if (botoxMode) applyBotoxEffect(landmarks);
-            }
-            requestAnimationFrame(renderLoop);
-        }
-
-        function updateMertzUI(val) {
-            const el = document.getElementById("mertz-val");
-            el.innerText = val;
-            el.style.color = val >= 3 ? "var(--danger)" : (val >= 1 ? "var(--gold)" : "var(--accent)");
-            document.getElementById('activity-alert').style.display = val >= 3 ? 'block' : 'none';
-        }
-
-        // Малювання симетричних точок
-        function drawSymmetricHeatmap(landmarks, mertz) {
-            if (mertz < 1) return;
-            const color = mertz >= 3 ? "255, 48, 48" : "0, 255, 204";
-            
-            // Пари точок (Ліві та Праві індекси MediaPipe) для ідеальної симетрії
-            const pairs = [
-                [103, 332], // Середина лоба
-                [67, 297],  // Над бровами (зовні)
-                [21, 251],  // Початок брів
-                [159, 386], // Верхня повіка (тільки при squint)
-                [0, 17]     // Губи (центр)
-            ];
-
-            pairs.forEach(pair => {
-                pair.forEach(idx => {
-                    const p = landmarks[idx];
-                    ctx.fillStyle = `rgba(${color}, 0.6)`;
-                    ctx.shadowBlur = 15; ctx.shadowColor = `rgb(${color})`;
-                    ctx.beginPath();
-                    ctx.arc(p.x * canvas.width, p.y * canvas.height, 8 + (mertz * 2), 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            });
-            ctx.shadowBlur = 0;
-        }
-
-        function applyBotoxEffect(landmarks) {
-            ctx.save(); ctx.filter = "blur(15px) brightness(1.1)"; ctx.fillStyle = "rgba(255,255,255,0.2)";
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+          const landmarks = results.multiFaceLandmarks[0];
+          
+          // Малюємо всі точки (для візуалізації)
+          ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#d4a373';
+          ctx.strokeStyle = '#e8c66e';
+          ctx.lineWidth = 2;
+          
+          for (const point of landmarks) {
+            const x = point.x * canvas.width;
+            const y = point.y * canvas.height;
             ctx.beginPath();
-            [10, 338, 297, 332, 284, 251, 21, 54, 103, 67].forEach((idx, i) => {
-                const p = landmarks[idx];
-                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
-                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
-            });
-            ctx.fill(); ctx.restore();
+            ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+            ctx.fillStyle = '#d4a373';
+            ctx.fill();
+            ctx.strokeStyle = '#e8c66e';
+            ctx.stroke();
+          }
+          
+          // Отримуємо координати брів
+          const left = landmarks[LEFT_BROW];
+          const right = landmarks[RIGHT_BROW];
+          
+          if (left && right) {
+            const leftY = left.y * canvas.height;
+            const rightY = right.y * canvas.height;
+            
+            // Якщо базові значення ще не встановлені, використовуємо поточні як базові (автокалібрування при першому виявленні)
+            if (baselineLeftY === null || baselineRightY === null) {
+              baselineLeftY = leftY;
+              baselineRightY = rightY;
+              statusEl.textContent = '✅ Обличчя виявлено. Натисніть "Калібрувати" для фіксації спокою.';
+            } else {
+              // Обчислюємо відхилення (підняття брів — зменшення Y, тому робимо різницю зі знаком)
+              // Щоб при піднятті значення було додатним, використовуємо baseline - current (бо Y збільшується донизу)
+              const leftDiff = baselineLeftY - leftY;
+              const rightDiff = baselineRightY - rightY;
+              
+              // Обмежуємо тільки додатні значення (підняття)
+              currentLeft = Math.max(0, leftDiff);
+              currentRight = Math.max(0, rightDiff);
+              
+              // Оновлюємо максимуми
+              if (currentLeft > maxLeft) maxLeft = currentLeft;
+              if (currentRight > maxRight) maxRight = currentRight;
+              
+              updateUI();
+              
+              // Візуальний зворотний зв'язок: зміна кольору точок брів залежно від активності
+              // Можна намалювати більші точки
+              ctx.fillStyle = '#ff7d00';
+              ctx.beginPath();
+              ctx.arc(left.x * canvas.width, left.y * canvas.height, 5 + currentLeft / 10, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(right.x * canvas.width, right.y * canvas.height, 5 + currentRight / 10, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+          }
+        } else {
+          // Обличчя не виявлено
+          ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+          statusEl.textContent = '😕 Обличчя не виявлено.';
         }
-
-        // Кнопки
-        document.getElementById('panel-toggle').onclick = () => document.getElementById('panel').classList.toggle('collapsed');
-        document.getElementById('btn-cam').onclick = () => { isFrontCamera = !isFrontCamera; startCamera(); };
-        document.getElementById('btn-freeze').onclick = () => { isFrozen = !isFrozen; document.getElementById('btn-freeze').classList.toggle('active'); };
-        document.getElementById('btn-mesh').onclick = (e) => { meshMode = !meshMode; e.target.classList.toggle('active'); };
-        document.getElementById('btn-mimic').onclick = (e) => { mimicMode = !mimicMode; e.target.classList.toggle('active'); };
-        document.getElementById('btn-botox').onclick = (e) => { botoxMode = !botoxMode; e.target.classList.toggle('active'); };
-
-        initAI();
-    </script>
+      }
+      
+      // Ініціалізація FaceMesh
+      function initFaceMesh() {
+        faceMesh = new FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+        
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        
+        faceMesh.onResults(onResults);
+      }
+      
+      // Запуск камери
+      async function startCamera() {
+        if (isCameraRunning) return;
+        
+        try {
+          // Запитуємо доступ до камери
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+          
+          // Чекаємо, поки відео почне відтворюватись
+          await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+              video.play();
+              resolve();
+            };
+          });
+          
+          // Встановлюємо розміри canvas відповідно до відео
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          // Ініціалізуємо камеру MediaPipe
+          camera = new Camera(video, {
+            onFrame: async () => {
+              if (faceMesh) {
+                await faceMesh.send({ image: video });
+              }
+            },
+            width: video.videoWidth,
+            height: video.videoHeight
+          });
+          
+          camera.start();
+          isCameraRunning = true;
+          statusEl.textContent = '📷 Камеру запущено. Чекаємо на обличчя...';
+          startBtn.disabled = true;
+          startBtn.style.opacity = 0.5;
+        } catch (err) {
+          statusEl.textContent = '❌ Помилка доступу до камери: ' + err.message;
+          console.error(err);
+        }
+      }
+      
+      // Калібрування (фіксація базового положення брів)
+      function calibrateBaseline() {
+        if (!isCameraRunning) {
+          statusEl.textContent = '⚠️ Спочатку запустіть камеру.';
+          return;
+        }
+        
+        // За потреби можна взяти середнє за кілька кадрів, але тут просто скидаємо на поточні значення,
+        // які будуть оновлені в наступному кадрі.
+        // Однак ми не маємо прямого доступу до landmarks ззовні onResults.
+        // Тому встановимо флаг, що при наступному виявленні треба оновити baseline.
+        // Але простіше: скинемо baseline в null, і при наступному виявленні він автоматично встановиться.
+        baselineLeftY = null;
+        baselineRightY = null;
+        maxLeft = 0;
+        maxRight = 0;
+        currentLeft = 0;
+        currentRight = 0;
+        updateUI();
+        statusEl.textContent = '⚙️ Калібрування... Зафіксуйте спокійний вираз обличчя.';
+      }
+      
+      // Скидання максимумів
+      function resetMax() {
+        maxLeft = 0;
+        maxRight = 0;
+        updateUI();
+        statusEl.textContent = '🔄 Максимуми скинуто.';
+      }
+      
+      // Обробники подій
+      startBtn.addEventListener('click', startCamera);
+      calibrateBtn.addEventListener('click', calibrateBaseline);
+      resetMaxBtn.addEventListener('click', resetMax);
+      
+      // Ініціалізуємо FaceMesh при завантаженні сторінки
+      initFaceMesh();
+      
+      // Якщо користувач хоче зупинити камеру при закритті сторінки
+      window.addEventListener('beforeunload', () => {
+        if (camera) {
+          camera.stop();
+        }
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(track => track.stop());
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
