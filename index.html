@@ -2,96 +2,115 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Beauty AI | Professional Facial Analysis</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Beauty AI Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; --panel-bg: rgba(10, 10, 10, 0.9); }
-        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        :root { --accent: #00ffcc; --danger: #ff3030; --gold: #ffd700; --panel-bg: rgba(10, 10, 10, 0.95); }
+        body { margin: 0; background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; position: fixed; width: 100%; height: 100%; }
         
-        #container { position: relative; width: 100vw; height: 100vh; }
-        video, #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        /* Layout */
+        #container { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+        video, #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .mirror { transform: scaleX(-1); } /* Mirror effect for front camera */
 
-        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        
-        /* Header & Lang */
-        .brand-header {
-            position: absolute; top: 20px; left: 20px; display: flex; align-items: center; gap: 12px;
-            background: var(--panel-bg); padding: 8px 18px; border-radius: 50px; border: 1px solid var(--accent); pointer-events: auto;
-        }
-        .lang-btn { position: absolute; top: 20px; right: 20px; background: var(--panel-bg); border: 1px solid var(--accent); color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; pointer-events: auto; font-weight: bold; }
-
-        /* Side Panel */
+        /* Retractable Side Panel */
         .side-panel { 
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%); 
-            background: var(--panel-bg); padding: 22px; border-radius: 25px; 
-            border: 1px solid rgba(0, 255, 204, 0.3); pointer-events: auto; width: 250px;
-            backdrop-filter: blur(15px);
+            position: absolute; right: 0; top: 0; height: 100%; width: 280px;
+            background: var(--panel-bg); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100; border-left: 1px solid rgba(0, 255, 204, 0.3); pointer-events: auto;
+            display: flex; flex-direction: column;
+        }
+        .side-panel.collapsed { transform: translateX(280px); }
+        
+        .toggle-tab {
+            position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 60px; background: var(--panel-bg);
+            border: 1px solid rgba(0, 255, 204, 0.3); border-right: none;
+            border-radius: 15px 0 0 15px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--accent);
         }
 
-        .control-group { margin-bottom: 18px; }
-        .group-title { font-size: 0.65rem; text-transform: uppercase; color: var(--accent); opacity: 0.8; margin-bottom: 8px; display: block; letter-spacing: 2px; }
+        /* Branding */
+        .brand-header { padding: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .brand-logo { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
+        .brand-name { font-weight: bold; font-size: 0.9rem; color: var(--accent); text-transform: uppercase; }
+
+        /* UI Elements */
+        .scroll-content { padding: 20px; flex-grow: 1; overflow-y: auto; }
+        .control-group { margin-bottom: 25px; }
+        .group-title { font-size: 0.7rem; text-transform: uppercase; color: var(--accent); opacity: 0.7; letter-spacing: 1.5px; margin-bottom: 12px; display: block; }
         
         button.action-btn { 
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 255, 204, 0.2); color: white; 
-            padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: 0.3s;
-            width: 100%; text-align: left; font-size: 0.8rem; margin-bottom: 6px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(0, 255, 204, 0.3); color: white; 
+            padding: 14px; border-radius: 12px; margin-bottom: 8px; width: 100%; text-align: left;
+            font-size: 0.85rem; cursor: pointer; transition: 0.2s; -webkit-tap-highlight-color: transparent;
         }
-        button.action-btn.active { background: var(--accent); color: black; font-weight: bold; }
-        button.special-btn { border-color: var(--gold); color: var(--gold); }
-        button.special-btn.active { background: var(--gold); color: black; }
-        button.capture-btn { background: var(--accent); color: #000; font-weight: bold; margin-top: 10px; border: none; text-align: center; justify-content: center; }
-
-        .mertz-card { background: rgba(255,255,255,0.07); padding: 12px; border-radius: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-        .mertz-val { font-size: 2.5rem; font-weight: bold; line-height: 1; margin-bottom: 4px; color: var(--accent); }
+        button.active { background: var(--accent) !important; color: black !important; font-weight: bold; }
         
-        #activity-alert {
-            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
-            color: var(--danger); font-weight: bold; background: rgba(255,48,48,0.2);
-            padding: 8px 25px; border-radius: 30px; display: none; border: 1px solid var(--danger);
-            text-transform: uppercase; letter-spacing: 2px; animation: pulse 1s infinite;
+        /* Camera & Lang Buttons */
+        .top-controls { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; z-index: 50; }
+        .icon-btn { 
+            background: var(--panel-bg); border: 1px solid var(--accent); color: white;
+            width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; pointer-events: auto; font-size: 1.2rem;
         }
-        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-        #capture-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; z-index: 100; pointer-events: none; }
+
+        /* Diagnostics */
+        .mertz-display-box { background: rgba(0, 255, 204, 0.1); border-radius: 20px; padding: 20px; text-align: center; border: 1px solid var(--accent); margin-bottom: 20px; }
+        .mertz-num { font-size: 3rem; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+        
+        #capture-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; z-index: 1000; }
+        .alert-badge { 
+            position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 48, 48, 0.8); padding: 5px 15px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: bold; display: none; z-index: 40;
+        }
     </style>
 </head>
 <body>
 
     <div id="capture-flash"></div>
+    <div id="activity-alert" class="alert-badge">HYPERACTIVITY DETECTED</div>
 
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="output_canvas"></canvas>
-    </div>
-
-    <div class="ui-overlay">
-        <div class="brand-header">
-            <div style="background: var(--accent); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: black;">SB</div>
-            <span class="brand-name">Smart Beauty AI</span>
+        
+        <div class="top-controls">
+            <div id="btn-cam" class="icon-btn">🔄</div>
+            <div id="btn-lang" class="icon-btn" style="font-size: 0.7rem; font-weight: bold;">EN</div>
         </div>
 
-        <button id="btn-lang" class="lang-btn">EN / UA</button>
-        <div id="activity-alert">HYPERACTIVITY</div>
+        <div id="panel" class="side-panel">
+            <div class="toggle-tab" id="panel-toggle">◀</div>
+            
+            <div class="brand-header">
+                <img src="logo.png" class="brand-logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/883/883360.png'">
+                <span class="brand-name">Smart Beauty AI</span>
+            </div>
 
-        <div class="side-panel">
-            <div class="control-group">
-                <span class="group-title" id="txt-diag">Diagnostics</span>
-                <div class="mertz-card">
-                    <div class="mertz-val" id="mertz-display">0</div>
-                    <div id="txt-mertz-lbl" style="font-size: 0.65rem; opacity: 0.6;">Mertz Scale</div>
+            <div class="scroll-content">
+                <div class="control-group">
+                    <span class="group-title" id="txt-diag">Live Diagnostics</span>
+                    <div class="mertz-display-box">
+                        <div id="mertz-val" class="mertz-num">0</div>
+                        <div id="txt-mertz-lbl" style="font-size: 0.7rem; opacity: 0.6;">Mertz Scale Grade</div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="control-group">
-                <span class="group-title" id="txt-view">Visualization</span>
-                <button id="btn-mesh" class="action-btn active">Anatomy Mesh</button>
-                <button id="btn-botox" class="action-btn special-btn">Simulate Botox</button>
-            </div>
+                <div class="control-group">
+                    <span class="group-title" id="txt-analysis">Analysis Layers</span>
+                    <button id="btn-mesh" class="action-btn active">Anatomy Grid</button>
+                    <button id="btn-mimic" class="action-btn">Mimic Heatmap</button>
+                    <button id="btn-botox" class="action-btn" style="border-color: var(--gold); color: var(--gold);">Simulate Botox</button>
+                </div>
 
-            <div class="control-group">
-                <span class="group-title" id="txt-report">Reporting</span>
-                <button id="btn-pdf" class="action-btn capture-btn">📄 CREATE PDF REPORT</button>
+                <div class="control-group">
+                    <span class="group-title" id="txt-report">Professional Tools</span>
+                    <button id="btn-pdf" class="action-btn" style="background: var(--accent); color: black; border: none; font-weight: bold; text-align: center;">📄 GENERATE PDF REPORT</button>
+                </div>
             </div>
         </div>
     </div>
@@ -100,45 +119,73 @@
         import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
         const { jsPDF } = window.jspdf;
-        const translations = {
-            en: { diag: "Diagnostics", view: "Visualization", report: "Reporting", mertz: "Mertz Scale", alert: "HYPERACTIVITY", mesh: "Anatomy Mesh", botox: "Simulate Botox", pdf: "📄 CREATE PDF REPORT" },
-            ua: { diag: "Діагностика", view: "Візуалізація", report: "Звітність", mertz: "Шкала Мерца", alert: "ГІПЕРАКТИВНІСТЬ", mesh: "Анатомічна сітка", botox: "Ефект Ботоксу", pdf: "📄 ЗГЕНЕРУВАТИ PDF ЗВІТ" }
-        };
-
-        let lang = 'en';
-        let faceLandmarker;
-        let botoxMode = false;
-        let meshMode = true;
-        let currentMertz = 0;
-        let currentLandmarks = null;
-
         const video = document.getElementById("video");
         const canvas = document.getElementById("output_canvas");
         const ctx = canvas.getContext("2d");
+        
+        let faceLandmarker;
+        let isFrontCamera = false; // Starting with BACK camera
+        let lang = 'en';
+        let botoxMode = false;
+        let meshMode = true;
+        let mimicMode = false;
+        let currentMertz = 0;
+        let currentLandmarks = null;
 
-        // Lang Toggle
-        document.getElementById('btn-lang').onclick = () => {
-            lang = lang === 'en' ? 'ua' : 'en';
-            document.getElementById('txt-diag').innerText = translations[lang].diag;
-            document.getElementById('txt-view').innerText = translations[lang].view;
-            document.getElementById('txt-report').innerText = translations[lang].report;
-            document.getElementById('txt-mertz-lbl').innerText = translations[lang].mertz;
-            document.getElementById('activity-alert').innerText = translations[lang].alert;
-            document.getElementById('btn-mesh').innerText = translations[lang].mesh;
-            document.getElementById('btn-botox').innerText = translations[lang].botox;
-            document.getElementById('btn-pdf').innerText = translations[lang].pdf;
+        const translations = {
+            en: { diag: "Live Diagnostics", analysis: "Analysis Layers", report: "Professional Tools", mertz: "Mertz Scale Grade", mesh: "Anatomy Grid", mimic: "Mimic Heatmap", botox: "Simulate Botox", pdf: "📄 GENERATE PDF REPORT", alert: "HYPERACTIVITY DETECTED" },
+            ua: { diag: "Діагностика", analysis: "Шар Аналізу", report: "Професійні інструменти", mertz: "Ступінь (Шкала Мерца)", mesh: "Анатомічна сітка", mimic: "Карта міміки", botox: "Ефект Ботоксу", pdf: "📄 ЗГЕНЕРУВАТИ PDF ЗВІТ", alert: "ВИЯВЛЕНО ГІПЕРАКТИВНІСТЬ" }
         };
 
-        async function init() {
+        // UI Interactions
+        document.getElementById('panel-toggle').onclick = () => {
+            const panel = document.getElementById('panel');
+            panel.classList.toggle('collapsed');
+            document.getElementById('panel-toggle').innerText = panel.classList.contains('collapsed') ? '▶' : '◀';
+        };
+
+        document.getElementById('btn-lang').onclick = () => {
+            lang = lang === 'en' ? 'ua' : 'en';
+            document.getElementById('btn-lang').innerText = lang.toUpperCase();
+            document.getElementById('txt-diag').innerText = translations[lang].diag;
+            document.getElementById('txt-analysis').innerText = translations[lang].analysis;
+            document.getElementById('txt-report').innerText = translations[lang].report;
+            document.getElementById('txt-mertz-lbl').innerText = translations[lang].mertz;
+            document.getElementById('btn-mesh').innerText = translations[lang].mesh;
+            document.getElementById('btn-mimic').innerText = translations[lang].mimic;
+            document.getElementById('btn-botox').innerText = translations[lang].botox;
+            document.getElementById('btn-pdf').innerText = translations[lang].pdf;
+            document.getElementById('activity-alert').innerText = translations[lang].alert;
+        };
+
+        // Camera Switching
+        async function startCamera() {
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: { facingMode: isFrontCamera ? "user" : "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            // Mirror only front camera
+            if (isFrontCamera) { video.classList.add('mirror'); canvas.classList.add('mirror'); }
+            else { video.classList.remove('mirror'); canvas.classList.remove('mirror'); }
+        }
+
+        document.getElementById('btn-cam').onclick = () => {
+            isFrontCamera = !isFrontCamera;
+            startCamera();
+        };
+
+        async function initAI() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
             faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                 baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
                 outputFaceBlendshapes: true, runningMode: "VIDEO", numFaces: 1
             });
-            navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } }).then(s => {
-                video.srcObject = s;
-                video.addEventListener("loadeddata", renderLoop);
-            });
+            startCamera();
+            video.addEventListener("loadeddata", renderLoop);
         }
 
         function renderLoop() {
@@ -151,97 +198,84 @@
                 currentLandmarks = results.faceLandmarks[0];
                 const blendshapes = results.faceBlendshapes[0].categories;
 
-                // --- CALCULATION (Fixing the 0 issue) ---
-                const browDown = (blendshapes.find(b => b.categoryName === "browDownLeft").score + 
-                                  blendshapes.find(b => b.categoryName === "browDownRight").score);
-                const eyeSquint = (blendshapes.find(b => b.categoryName === "eyeSquintLeft").score + 
-                                   blendshapes.find(b => b.categoryName === "eyeSquintRight").score);
+                // --- 360° MIMIC ANALYSIS ---
+                const browActivity = blendshapes.find(b => b.categoryName === "browInnerUp").score + blendshapes.find(b => b.categoryName === "browDownLeft").score;
+                const eyeActivity = blendshapes.find(b => b.categoryName === "eyeSquintLeft").score + blendshapes.find(b => b.categoryName === "eyeSquintRight").score;
+                const mouthActivity = blendshapes.find(b => b.categoryName === "mouthPucker").score + blendshapes.find(b => b.categoryName === "mouthShrugUpper").score;
                 
-                currentMertz = Math.min(Math.round((browDown + eyeSquint) * 3.5), 4);
+                currentMertz = Math.min(Math.round((browActivity + eyeActivity + mouthActivity) * 2.8), 4);
                 
-                const mDisplay = document.getElementById("mertz-display");
-                mDisplay.innerText = currentMertz;
-                mDisplay.style.color = currentMertz >= 3 ? "var(--danger)" : (currentMertz >= 1 ? "var(--gold)" : "var(--accent)");
+                const mVal = document.getElementById("mertz-val");
+                mVal.innerText = currentMertz;
+                mVal.style.color = currentMertz >= 3 ? "var(--danger)" : (currentMertz >= 1 ? "var(--gold)" : "var(--accent)");
                 document.getElementById('activity-alert').style.display = currentMertz >= 3 ? 'block' : 'none';
 
                 const draw = new DrawingUtils(ctx);
-                if (meshMode) draw.drawConnectors(currentLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff15" });
+                if (meshMode) draw.drawConnectors(currentLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#ffffff10", lineWidth: 0.5 });
 
-                if (botoxMode) {
-                    applyBotoxEffect(currentLandmarks);
-                } else {
-                    drawActivePoints(currentLandmarks, currentMertz);
-                }
+                if (mimicMode) drawMimicHeatmap(currentLandmarks, currentMertz);
+                if (botoxMode) applyBotoxEffect(currentLandmarks);
             }
             requestAnimationFrame(renderLoop);
         }
 
-        function drawActivePoints(landmarks, mertz) {
-            const color = mertz >= 3 ? "rgba(255, 48, 48, 0.8)" : (mertz >= 1 ? "rgba(255, 215, 0, 0.8)" : "rgba(0, 255, 204, 0.6)");
-            [8, 9, 168, 33, 263].forEach(idx => {
+        function drawMimicHeatmap(landmarks, mertz) {
+            const color = mertz >= 3 ? "255, 48, 48" : (mertz >= 1 ? "255, 215, 0" : "0, 255, 204");
+            // Highlight zones: Forehead, Glabella, Eyes, Perioral
+            [10, 9, 8, 33, 263, 0, 13, 14].forEach(idx => {
                 const p = landmarks[idx];
-                ctx.fillStyle = color;
+                ctx.fillStyle = `rgba(${color}, 0.5)`;
+                ctx.shadowBlur = 15; ctx.shadowColor = `rgb(${color})`;
                 ctx.beginPath();
-                ctx.arc(p.x * canvas.width, p.y * canvas.height, 5 + mertz, 0, Math.PI * 2);
+                ctx.arc(p.x * canvas.width, p.y * canvas.height, 8 + (mertz * 2), 0, Math.PI * 2);
                 ctx.fill();
             });
+            ctx.shadowBlur = 0;
         }
 
         function applyBotoxEffect(landmarks) {
             ctx.save();
-            ctx.filter = "blur(18px) brightness(1.1)";
-            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-            const forehead = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 10];
+            ctx.filter = "blur(20px) brightness(1.1) contrast(0.9)";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+            const smoothZones = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67]; // Forehead & Glabella
             ctx.beginPath();
-            forehead.forEach((idx, i) => {
-                const x = landmarks[idx].x * canvas.width;
-                const y = landmarks[idx].y * canvas.height;
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            smoothZones.forEach((idx, i) => {
+                const p = landmarks[idx];
+                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
+                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
             });
             ctx.fill();
             ctx.restore();
         }
 
         document.getElementById("btn-pdf").onclick = async () => {
-            document.getElementById("capture-flash").style.display = "block";
-            setTimeout(() => document.getElementById("capture-flash").style.display = "none", 100);
-
-            const oldBotox = botoxMode;
-            botoxMode = false; await new Promise(r => setTimeout(r, 200));
-            const imgBefore = captureFrame();
-            
-            botoxMode = true; await new Promise(r => setTimeout(r, 200));
-            const imgAfter = captureFrame();
-            botoxMode = oldBotox;
+            const flash = document.getElementById("capture-flash");
+            flash.style.display = "block"; setTimeout(() => flash.style.display = "none", 100);
 
             const doc = new jsPDF();
-            doc.setFillColor(10, 10, 10); doc.rect(0, 0, 210, 297, 'F');
+            const screenshot = canvas.toDataURL("image/jpeg", 0.7);
+            
+            doc.setFillColor(20, 20, 20); doc.rect(0, 0, 210, 297, 'F');
             doc.setTextColor(0, 255, 204); doc.setFontSize(22);
-            doc.text("Smart Beauty AI Report", 20, 30);
+            doc.text("SMART BEAUTY AI: DIAGNOSTIC REPORT", 20, 30);
             
             doc.setTextColor(255, 255, 255); doc.setFontSize(12);
-            doc.text(`Date: ${new Date().toLocaleString()}`, 20, 45);
-            doc.text(`Mertz Grade: ${currentMertz}/4`, 20, 53);
-
-            doc.text("BEFORE (Activity)", 20, 75); doc.addImage(imgBefore, 'JPEG', 20, 80, 80, 105);
-            doc.text("AFTER (Botox Sim)", 110, 75); doc.addImage(imgAfter, 'JPEG', 110, 80, 80, 105);
+            doc.text(`Patient Analysis Date: ${new Date().toLocaleString()}`, 20, 45);
+            doc.text(`Overall Mimic Activity (Mertz): ${currentMertz} / 4`, 20, 52);
             
-            doc.save(`SmartBeauty_Report_${Date.now()}.pdf`);
+            doc.addImage(screenshot, 'JPEG', 20, 70, 170, 120);
+            
+            doc.setFontSize(10); doc.setTextColor(150);
+            doc.text("* This is an AI-generated simulation for cosmetic evaluation purposes.", 20, 200);
+            doc.save(`SB_Report_${Date.now()}.pdf`);
         };
 
-        function captureFrame() {
-            const temp = document.createElement("canvas");
-            temp.width = canvas.width; temp.height = canvas.height;
-            const tCtx = temp.getContext("2d");
-            tCtx.scale(-1, 1); tCtx.drawImage(video, -temp.width, 0, temp.width, temp.height);
-            tCtx.scale(-1, 1); tCtx.drawImage(canvas, 0, 0);
-            return temp.toDataURL("image/jpeg", 0.8);
-        }
+        // Button Toggles
+        document.getElementById('btn-mesh').onclick = (e) => { meshMode = !meshMode; e.target.classList.toggle('active'); };
+        document.getElementById('btn-mimic').onclick = (e) => { mimicMode = !mimicMode; e.target.classList.toggle('active'); };
+        document.getElementById('btn-botox').onclick = (e) => { botoxMode = !botoxMode; e.target.classList.toggle('active'); };
 
-        document.getElementById("btn-botox").onclick = (e) => { botoxMode = !botoxMode; e.target.classList.toggle("active"); };
-        document.getElementById("btn-mesh").onclick = (e) => { meshMode = !meshMode; e.target.classList.toggle("active"); };
-
-        init();
+        initAI();
     </script>
 </body>
 </html>
