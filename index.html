@@ -3,53 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Weather Pro</title>
+    <title>AR Weather Pro: Realistic Rain</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-        
         #input_video {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            transform: translate(-50%, -50%) scaleX(-1);
-            z-index: 1;
+            position: absolute; top: 50%; left: 50%;
+            width: 100%; height: 100%; object-fit: cover;
+            transform: translate(-50%, -50%) scaleX(-1); z-index: 1;
         }
-
         canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
-
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(18, 18, 18, 0.9); z-index: 100; transition: opacity 0.5s;
+            background: rgba(10, 10, 10, 0.9); z-index: 100; transition: opacity 0.5s;
         }
-
         .start-btn {
-            padding: 20px 40px; border: 2px solid #d4a373; background: transparent;
-            color: #d4a373; font-family: 'Cormorant Garamond', serif;
-            font-size: 1.5rem; text-transform: uppercase; cursor: pointer;
+            padding: 15px 35px; border: 2px solid #a0c4ff; background: transparent;
+            color: #a0c4ff; font-family: sans-serif; font-weight: bold;
+            font-size: 1.2rem; text-transform: uppercase; cursor: pointer; border-radius: 30px;
         }
-
         #ui-layer { 
-            position: absolute; top: env(safe-area-inset-top, 20px); left: 20px; 
-            color: #d4a373; z-index: 10; pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            position: absolute; top: 40px; left: 20px; color: #fff; z-index: 10; pointer-events: none;
         }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; color: #a0c4ff; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <button class="start-btn" onclick="startExperience()">Увійти в стихію</button>
-        <p style="color: #d4a373; margin-top: 20px;">Потрібен доступ до камери</p>
+        <button class="start-btn" onclick="startExperience()">Почати експеримент</button>
+        <p style="color: #666; margin-top: 15px;">Наведіть камеру на відкритий простір</p>
     </div>
 
     <div id="ui-layer">
-        <h1 id="title">МАГ ПОГОДИ</h1>
-        <p id="status">Очікування активації...</p>
+        <h1>КЕРУВАННЯ ДОЩЕМ</h1>
+        <p id="status">Запуск системи...</p>
     </div>
 
     <video id="input_video" autoplay playsinline muted></video>
@@ -60,8 +51,9 @@
         const statusText = document.getElementById('status');
 
         let experienceStarted = false;
+        let handPos = null;
 
-        // --- Three.js Сцена ---
+        // --- 1. THREE.JS СЦЕНА ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -69,37 +61,49 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        const rainCount = 1500; // Трохи менше для стабільності на мобільних
-        const rainGeo = new THREE.BufferGeometry();
-        const rainPos = new Float32Array(rainCount * 3);
-        const rainSpeeds = new Float32Array(rainCount);
+        // --- 2. РЕАЛІСТИЧНИЙ ДОЩ (ЛІНІЇ) ---
+        const rainCount = 1000;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(rainCount * 6); // Початок і кінець кожної лінії (2 точки * 3 коорд)
+        const velocities = [];
 
-        for(let i=0; i<rainCount; i++) {
-            rainPos[i*3] = (Math.random() - 0.5) * 10;
-            rainPos[i*3+1] = Math.random() * 10;
-            rainPos[i*3+2] = (Math.random() - 0.5) * 5;
-            rainSpeeds[i] = 0.04 + Math.random() * 0.06;
+        for (let i = 0; i < rainCount; i++) {
+            const x = (Math.random() - 0.5) * 10;
+            const y = Math.random() * 10;
+            const z = (Math.random() - 0.5) * 5;
+            
+            // Початкова точка
+            positions[i * 6] = x;
+            positions[i * 6 + 1] = y;
+            positions[i * 6 + 2] = z;
+            // Кінцева точка (чуть нижче, створює довжину краплі)
+            positions[i * 6 + 3] = x;
+            positions[i * 6 + 4] = y - 0.2;
+            positions[i * 6 + 5] = z;
+
+            velocities.push({ x: 0, y: -0.15 - Math.random() * 0.1, z: 0 });
         }
 
-        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-        const rainMat = new THREE.PointsMaterial({ color: 0xd4a373, size: 0.04, transparent: true, opacity: 0 });
-        const rainPoints = new THREE.Points(rainGeo, rainMat);
-        scene.add(rainPoints);
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const material = new THREE.LineBasicMaterial({ color: 0xa0c4ff, transparent: true, opacity: 0.6 });
+        const rainLines = new THREE.LineSegments(geometry, material);
+        scene.add(rainLines);
+
         camera.position.z = 5;
 
-        // --- MediaPipe Налаштування ---
-        let handPos = null;
+        // --- 3. MEDIAPIPE (ТРЕКІНГ РУКИ) ---
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
         
         hands.onResults((results) => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const lm = results.multiHandLandmarks[0][9];
-                handPos = { x: (0.5 - lm.x) * 10, y: (0.5 - lm.y) * 8 };
-                statusText.innerText = "Стихія відчуває руку";
+                const lm = results.multiHandLandmarks[0][9]; // Центр долоні
+                // Масштабування під екран
+                handPos = { x: (0.5 - lm.x) * 12, y: (0.5 - lm.y) * 10 };
+                statusText.innerText = "Рука виявлена: відбиваю краплі";
             } else {
                 handPos = null;
-                statusText.innerText = "Покажіть долоню";
+                statusText.innerText = "Покажіть долоню камері";
             }
         });
 
@@ -110,39 +114,64 @@
             try {
                 const cameraUtils = new Camera(videoElement, {
                     onFrame: async () => { await hands.send({image: videoElement}); },
-                    width: { ideal: 1280 }, height: { ideal: 720 },
-                    facingMode: 'environment'
+                    width: 1280, height: 720, facingMode: 'environment'
                 });
                 await cameraUtils.start();
                 experienceStarted = true;
                 animate();
             } catch (err) {
-                alert("Помилка камери: " + err);
+                alert("Доступ до камери відхилено");
             }
         }
 
+        // --- 4. АНІМАЦІЯ ТА ФІЗИКА ВІДБИТТЯ ---
         function animate() {
             if(!experienceStarted) return;
             requestAnimationFrame(animate);
             
-            const pos = rainGeo.attributes.position.array;
-            rainMat.opacity = handPos ? Math.min(0.6, rainMat.opacity + 0.05) : Math.max(0, rainMat.opacity - 0.05);
+            const posAttr = geometry.attributes.position;
+            const pos = posAttr.array;
 
             for (let i = 0; i < rainCount; i++) {
-                let idx = i * 3;
-                pos[idx + 1] -= rainSpeeds[i];
+                let idx = i * 6;
+                let v = velocities[i];
 
+                // Гравітація
+                pos[idx + 1] += v.y; // Рух по Y (початок краплі)
+                pos[idx + 4] += v.y; // Рух по Y (кінець краплі)
+                
+                // Інерція по X/Z (якщо було відбиття)
+                pos[idx] += v.x;
+                pos[idx + 3] += v.x;
+                v.x *= 0.98; // Затухання бокового руху
+
+                // ПЕРЕВІРКА КОЛІЗІЇ З РУКОЮ
                 if (handPos) {
                     let dx = pos[idx] - handPos.x;
                     let dy = pos[idx + 1] - handPos.y;
-                    if (Math.sqrt(dx*dx + dy*dy) < 0.7) {
-                        pos[idx + 1] += 0.3;
-                        pos[idx] += (Math.random() - 0.5) * 1;
+                    let distance = Math.sqrt(dx*dx + dy*dy);
+
+                    if (distance < 0.8 && pos[idx+1] > handPos.y - 0.5 && pos[idx+1] < handPos.y + 0.5) {
+                        // ЕФЕКТ ВІДБИТТЯ
+                        v.y = Math.abs(v.y) * 0.8; // Відскок вгору
+                        v.x = (pos[idx] - handPos.x) * 0.2; // Відліт в сторону від центру долоні
+                        
+                        // Короткий спалах кольору при ударі (опціонально)
                     }
                 }
-                if (pos[idx + 1] < -5) pos[idx + 1] = 5;
+
+                // ПОВЕРНЕННЯ КРАПЛІ (якщо впала або занадто високо підлетіла)
+                if (pos[idx + 1] < -5 || pos[idx + 1] > 6) {
+                    const newX = (Math.random() - 0.5) * 10;
+                    pos[idx] = pos[idx + 3] = newX;
+                    pos[idx + 1] = 6;
+                    pos[idx + 4] = 5.8;
+                    v.y = -0.15 - Math.random() * 0.1;
+                    v.x = 0;
+                }
             }
-            rainGeo.attributes.position.needsUpdate = true;
+            
+            posAttr.needsUpdate = true;
             renderer.render(scene, camera);
         }
 
