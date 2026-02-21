@@ -3,182 +3,491 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Weather Station: Rain Gauge</title>
+    <title>Справжній метеоролог: збирач дощу</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        #input_video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0a1a2a; font-family: 'Segoe UI', Roboto, sans-serif; }
+        #input_video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); } /* Дзеркально для зручності */
         canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
         
         #ui-layer { 
-            position: absolute; top: 30px; left: 20px; color: #fff; z-index: 10; 
-            background: rgba(0,0,0,0.6); padding: 15px; border-radius: 15px;
-            border-left: 5px solid #64b5f6; backdrop-filter: blur(5px);
+            position: absolute; top: 20px; left: 20px; color: #e0f2fe; z-index: 10; 
+            background: rgba(10, 30, 50, 0.8); padding: 20px; border-radius: 24px;
+            border-left: 6px solid #ffb74d; backdrop-filter: blur(8px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            pointer-events: none;
+            border: 1px solid #64b5f6;
         }
-        .stats { font-size: 24px; font-weight: bold; color: #64b5f6; margin-top: 5px; }
-        
+        .stat-title { font-size: 14px; opacity: 0.8; letter-spacing: 1px; margin-bottom: 8px; color: #bbdefb; }
+        .stats { font-size: 36px; font-weight: 800; color: #ffb74d; line-height: 1; text-shadow: 0 0 15px #ff9800; }
+        .stats small { font-size: 16px; color: #90caf9; margin-left: 5px; font-weight: 300; }
+        #timer { font-size: 32px; font-weight: 700; color: #64b5f6; margin-top: 10px; }
+        #timer.warning { color: #ff7043; }
+        .hint { 
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,20,40,0.8); color: #b3e5fc; padding: 12px 24px; 
+            border-radius: 60px; font-size: 18px; backdrop-filter: blur(4px);
+            border: 1px solid #ffb74d; z-index: 10; white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
-            background: #111; z-index: 100;
+            background: linear-gradient(145deg, #0b2b40, #071e2c); z-index: 100;
         }
         .btn { 
-            padding: 15px 40px; border: 2px solid #64b5f6; background: none; 
-            color: #64b5f6; border-radius: 30px; cursor: pointer; font-weight: bold;
-            transition: 0.3s;
+            padding: 20px 60px; border: 3px solid #ffb74d; background: rgba(255,180,77,0.1); 
+            color: #ffb74d; border-radius: 60px; cursor: pointer; font-weight: bold;
+            transition: 0.3s; font-size: 28px; letter-spacing: 2px; backdrop-filter: blur(5px);
+            box-shadow: 0 0 30px #ffb74d55;
         }
-        .btn:hover { background: #64b5f6; color: white; }
+        .btn:hover { background: #ffb74d; color: #0a1a2a; transform: scale(1.05); }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <button class="btn" onclick="start()">АКТИВУВАТИ ДОЩОМІР</button>
+        <button class="btn" onclick="startGame()">🌦️ РОЗПОЧАТИ</button>
     </div>
 
     <div id="ui-layer">
-        <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Метеостанція: Плювіограф</div>
-        <div id="status" class="stats">0.00 mm</div>
-        <div style="font-size: 10px; color: #aaa;">Тримайте долоню горизонтально</div>
+        <div class="stat-title">ЗІБРАНО КРАПЕЛЬ</div>
+        <div class="stats" id="collected">0 <small>/ 60 сек</small></div>
+        <div class="stat-title" style="margin-top: 12px;">ЧАС</div>
+        <div id="timer">1:00</div>
     </div>
+
+    <div class="hint" id="hint">👆 Тримайте долоню горизонтально. Ловіть краплі дощоміром або відбивайте рукою!</div>
 
     <video id="input_video" autoplay playsinline muted></video>
 
     <script>
+        // --- Отримання елементів ---
         const videoElement = document.getElementById('input_video');
-        const statusText = document.getElementById('status');
+        const collectedSpan = document.getElementById('collected');
+        const timerDiv = document.getElementById('timer');
+        const overlay = document.getElementById('overlay');
 
-        let rainLevel = 0; // Накопичена вода в мм
+        // --- Стан гри ---
+        let collectedDrops = 0;
+        let timeLeft = 60; // секунд
+        let gameActive = false;
+        let lastTimestamp = 0;
+        let gameInterval = null;
 
-        // --- 1. THREE.JS: СЦЕНА ТА ОБ'ЄКТИ ---
+        // --- Тривимірна сцена ---
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        scene.background = new THREE.Color(0x0a1a2a); // Темно-синє небо
+        scene.fog = new THREE.Fog(0x0a1a2a, 15, 30);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 8);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // Для майбутнього
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        // Освітлення
+        const ambient = new THREE.AmbientLight(0x404060);
+        scene.add(ambient);
+
+        const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
         dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        const d = 10;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 2;
+        dirLight.shadow.camera.far = 20;
         scene.add(dirLight);
 
-        // --- СТВОРЕННЯ ДОЩОМІРА (Група об'єктів) ---
+        const backLight = new THREE.PointLight(0x4466aa, 0.8);
+        backLight.position.set(-3, 4, -5);
+        scene.add(backLight);
+
+        // --- СТВОРЕННЯ ДОЩОМІРА (покращений) ---
         const gaugeGroup = new THREE.Group();
         scene.add(gaugeGroup);
 
-        // Скляна колба
-        const glassGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 32, 1, true);
+        // Зовнішня колба (скло) з лійкою зверху
+        const glassGeo = new THREE.CylinderGeometry(0.45, 0.45, 1.6, 32);
         const glassMat = new THREE.MeshPhongMaterial({ 
-            color: 0xffffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide, shininess: 100 
+            color: 0xd0e4ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide, shininess: 90 
         });
         const glass = new THREE.Mesh(glassGeo, glassMat);
+        glass.castShadow = true;
+        glass.receiveShadow = true;
+        glass.position.y = 0;
         gaugeGroup.add(glass);
 
-        // Вода всередині
-        const waterGeo = new THREE.CylinderGeometry(0.39, 0.39, 1.5, 32);
-        const waterMat = new THREE.MeshPhongMaterial({ color: 0x00aaff, transparent: true, opacity: 0.7 });
+        // Лійка (воронка)
+        const funnelGeo = new THREE.ConeGeometry(0.6, 0.4, 32);
+        const funnelMat = new THREE.MeshPhongMaterial({ color: 0xaaccff, emissive: 0x112233, transparent: true, opacity: 0.6 });
+        const funnel = new THREE.Mesh(funnelGeo, funnelMat);
+        funnel.position.y = 0.9;
+        funnel.castShadow = true;
+        gaugeGroup.add(funnel);
+
+        // Вода всередині (рівень змінюється)
+        const waterGeo = new THREE.CylinderGeometry(0.43, 0.43, 1.5, 32);
+        const waterMat = new THREE.MeshPhongMaterial({ color: 0x3399ff, emissive: 0x002244, transparent: true, opacity: 0.8 });
         const water = new THREE.Mesh(waterGeo, waterMat);
-        water.position.y = -0.75; // Дно колби
-        water.scale.set(1, 0.01, 1); // Починаємо з майже нуля
+        water.position.y = -0.75; // дно
+        water.scale.set(1, 0.01, 1); // початковий рівень
+        water.castShadow = true;
+        water.receiveShadow = true;
         gaugeGroup.add(water);
 
-        // Шкала (прості мітки)
-        for(let i=1; i<=5; i++) {
-            const markGeo = new THREE.BoxGeometry(0.2, 0.02, 0.1);
-            const mark = new THREE.Mesh(markGeo, new THREE.MeshBasicMaterial({color: 0xffffff}));
-            mark.position.set(0.4, -0.75 + (i * 0.25), 0);
+        // Шкала (мірні позначки)
+        for(let i = 1; i <= 5; i++) {
+            const markGeo = new THREE.BoxGeometry(0.25, 0.03, 0.1);
+            const markMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x333333 });
+            const mark = new THREE.Mesh(markGeo, markMat);
+            mark.position.set(0.5, -0.75 + i * 0.32, 0);
             gaugeGroup.add(mark);
+            
+            // маленька цифра (імітація)
+            const numGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);
+            const numMat = new THREE.MeshStandardMaterial({ color: 0xffffaa });
+            const num = new THREE.Mesh(numGeo, numMat);
+            num.position.set(0.55, -0.75 + i * 0.32, 0.1);
+            gaugeGroup.add(num);
         }
 
-        // --- СИСТЕМА ДОЩУ ---
-        const rainCount = 300;
+        // Металевий обідок
+        const rimGeo = new THREE.TorusGeometry(0.45, 0.05, 16, 50);
+        const rimMat = new THREE.MeshStandardMaterial({ color: 0xccccdd, emissive: 0x224466 });
+        const rim = new THREE.Mesh(rimGeo, rimMat);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 0.8;
+        gaugeGroup.add(rim);
+
+        // --- СИСТЕМА ДОЩУ (краплі великі та об'ємні) ---
+        const rainCount = 200; // менше, але крупніші
         const rainDrops = [];
-        const dropGeo = new THREE.ConeGeometry(0.01, 0.1, 4);
-        const dropMat = new THREE.MeshBasicMaterial({ color: 0x64b5f6, transparent: true, opacity: 0.6 });
 
+        // Функція створення об'ємної краплі (група: сфера + конус)
+        function createVolumetricDrop() {
+            const group = new THREE.Group();
+            
+            // Основне тіло (сфера)
+            const sphereGeo = new THREE.SphereGeometry(0.12, 8, 8);
+            const sphereMat = new THREE.MeshPhongMaterial({ 
+                color: 0x88ccff, 
+                emissive: 0x113355,
+                shininess: 60,
+                transparent: true,
+                opacity: 0.95
+            });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            sphere.position.y = 0;
+            group.add(sphere);
+
+            // Хвостик (конус)
+            const tailGeo = new THREE.ConeGeometry(0.06, 0.18, 5);
+            const tailMat = new THREE.MeshPhongMaterial({ color: 0xaaccff, emissive: 0x113355 });
+            const tail = new THREE.Mesh(tailGeo, tailMat);
+            tail.castShadow = true;
+            tail.position.y = -0.15;
+            tail.rotation.x = 0.2; // трохи нахилу
+            group.add(tail);
+
+            // Блиск (маленька сфера)
+            const sparkGeo = new THREE.SphereGeometry(0.04, 4);
+            const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const spark = new THREE.Mesh(sparkGeo, sparkMat);
+            spark.position.set(0.05, 0.05, 0.08);
+            group.add(spark);
+
+            return group;
+        }
+
+        // Ініціалізація крапель
         for (let i = 0; i < rainCount; i++) {
-            const drop = new THREE.Mesh(dropGeo, dropMat);
-            resetDrop(drop);
-            scene.add(drop);
-            rainDrops.push({ mesh: drop, velocity: -0.1 - Math.random() * 0.1 });
+            const dropGroup = createVolumetricDrop();
+            // Початкове положення
+            dropGroup.position.set(
+                (Math.random() - 0.5) * 12,
+                8 + Math.random() * 12,
+                (Math.random() - 0.5) * 8
+            );
+            scene.add(dropGroup);
+            
+            // Зберігаємо дані: mesh (group), швидкість (вектор), попереднє положення, стан
+            rainDrops.push({
+                group: dropGroup,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.8,   // невеликий вітер
+                    -2.5 - Math.random() * 1.5,    // швидкість падіння
+                    (Math.random() - 0.5) * 0.8
+                ),
+                prevPos: dropGroup.position.clone()
+            });
         }
 
-        function resetDrop(drop) {
-            drop.position.set((Math.random() - 0.5) * 10, 6 + Math.random() * 5, (Math.random() - 0.5) * 5);
-        }
+        // --- ІНДИКАТОР ДОЛОНІ (візуалізація зони взаємодії) ---
+        const handSphereGeo = new THREE.SphereGeometry(0.6, 16);
+        const handSphereMat = new THREE.MeshPhongMaterial({ 
+            color: 0xffaa33, 
+            emissive: 0x442200,
+            transparent: true, 
+            opacity: 0.3,
+            wireframe: true
+        });
+        const handIndicator = new THREE.Mesh(handSphereGeo, handSphereMat);
+        scene.add(handIndicator);
+        handIndicator.visible = false; // показуємо тільки коли рука в кадрі
 
-        camera.position.z = 5;
+        // --- ТРЕКІНГ РУКИ ---
+        let handPos = null; // {x, y, z}
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ 
+            maxNumHands: 1, 
+            modelComplexity: 1, 
+            minDetectionConfidence: 0.6, 
+            minTrackingConfidence: 0.6 
+        });
 
-        // --- 2. ТРЕКІНГ РУКИ ---
-        let handPos = null;
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-        
         hands.onResults((results) => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const lm = results.multiHandLandmarks[0][9]; // Центр долоні
+                // Конвертація координат у простір three.js (приблизно)
                 handPos = {
-                    x: (lm.x - 0.5) * 12, 
-                    y: -(lm.y - 0.5) * 8,
-                    z: (lm.z * 10) 
+                    x: (lm.x - 0.5) * 14,      // ширший діапазон
+                    y: -(lm.y - 0.5) * 10,
+                    z: (lm.z * 8) - 2           // глибина
                 };
+                handIndicator.position.set(handPos.x, handPos.y, handPos.z);
+                handIndicator.visible = true;
             } else {
                 handPos = null;
+                handIndicator.visible = false;
             }
         });
 
-        async function start() {
-            document.getElementById('overlay').style.display = 'none';
+        // --- Камера MediaPipe ---
+        async function startGame() {
+            overlay.style.display = 'none';
+            gameActive = true;
+            collectedDrops = 0;
+            timeLeft = 60;
+            updateUI();
+            
             const cameraUtils = new Camera(videoElement, {
-                onFrame: async () => { await hands.send({image: videoElement}); },
-                width: 1280, height: 720
+                onFrame: async () => { await hands.send({ image: videoElement }); },
+                width: 1280,
+                height: 720
             });
             cameraUtils.start();
+            
+            // Таймер
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft -= 1;
+                updateUI();
+                if (timeLeft <= 0) {
+                    gameActive = false;
+                    timerDiv.classList.add('warning');
+                    clearInterval(gameInterval);
+                }
+            }, 1000);
+            
             animate();
         }
 
-        // --- 3. ФІЗИКА НАПОВНЕННЯ ---
+        function updateUI() {
+            collectedSpan.innerHTML = collectedDrops + ' <small>/ 60 сек</small>';
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            timerDiv.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (timeLeft <= 10) timerDiv.classList.add('warning');
+            else timerDiv.classList.remove('warning');
+        }
+
+        // --- ФІЗИКА ТА АНІМАЦІЯ ---
+        let clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
-            
-            if (handPos) {
-                // Дощомір плавно слідує за рукою
-                gaugeGroup.position.lerp(new THREE.Vector3(handPos.x, handPos.y, 0), 0.2);
+
+            const delta = Math.min(clock.getDelta(), 0.1); // обмеження
+
+            if (!gameActive) {
+                // Просто анімуємо падіння без збору (або можна зупинити)
+                renderer.render(scene, camera);
+                return;
             }
 
-            rainDrops.forEach(dropObj => {
-                const d = dropObj.mesh;
-                d.position.y += dropObj.velocity;
+            // Дощомір слідує за рукою плавно
+            if (handPos) {
+                gaugeGroup.position.lerp(new THREE.Vector3(handPos.x, handPos.y, 0), 0.15);
+            }
 
+            // Оновлення кожної краплі
+            rainDrops.forEach(drop => {
+                const group = drop.group;
+                const vel = drop.velocity;
+                
+                // Зберігаємо попереднє положення
+                drop.prevPos.copy(group.position);
+                
+                // Рух із вітром та гравітацією
+                vel.y += delta * 4.0; // гравітація прискорює падіння
+                group.position.x += vel.x * delta * 3;
+                group.position.y += vel.y * delta * 3;
+                group.position.z += vel.z * delta * 3;
+
+                // Обертання краплі для ефекту польоту
+                group.rotation.x += 0.02;
+                group.rotation.z += 0.03;
+
+                // --- КОЛІЗІЇ З РУКОЮ ---
                 if (handPos) {
-                    // Радіус колізії (вхід в колбу)
-                    const dx = d.position.x - gaugeGroup.position.x;
-                    const dz = d.position.z - gaugeGroup.position.z;
-                    const distXZ = Math.sqrt(dx*dx + dz*dz);
-
-                    // Якщо крапля потрапила в радіус колби і знаходиться на рівні її верхньої частини
-                    if (distXZ < 0.4 && d.position.y < gaugeGroup.position.y + 0.7 && d.position.y > gaugeGroup.position.y) {
-                        
-                        // ЛОГІКА НАКОПИЧЕННЯ
-                        rainLevel += 0.002; 
-                        statusText.innerText = (rainLevel * 10).toFixed(2) + " mm";
-                        
-                        // Оновлення візуального рівня води
-                        const visualScale = Math.min(rainLevel * 5, 1); 
-                        water.scale.y = visualScale;
-                        water.position.y = -0.75 + (0.75 * visualScale);
-
-                        resetDrop(d); // Крапля "зникла" в колбі
+                    const handRadius = 0.7;
+                    const toHand = new THREE.Vector3(
+                        group.position.x - handPos.x,
+                        group.position.y - handPos.y,
+                        group.position.z - handPos.z
+                    );
+                    const distToHand = toHand.length();
+                    if (distToHand < handRadius) {
+                        // Відштовхування (простий відскок)
+                        const normal = toHand.clone().normalize();
+                        // Відбиваємо швидкість відносно нормалі
+                        const dot = vel.dot(normal);
+                        if (dot < 0) { // рух у напрямку руки
+                            vel.addScaledVector(normal, -2 * dot).multiplyScalar(0.7); // коеф. відскоку
+                        }
+                        // Відсуваємо краплю на поверхню
+                        group.position.copy(handPos).add(normal.multiplyScalar(handRadius + 0.1));
                     }
                 }
 
-                if (d.position.y < -5) resetDrop(d);
+                // --- КОЛІЗІЇ З ДОЩОМІРОМ ---
+                const gaugePos = gaugeGroup.position;
+                const localPos = new THREE.Vector3().subVectors(group.position, gaugePos);
+                
+                // Параметри циліндра
+                const radius = 0.5;      // трохи більше за скло
+                const halfHeight = 0.9;   // висота половини
+
+                // Перевірка на зіткнення з боковою стінкою
+                const inCylinderXZ = Math.sqrt(localPos.x*localPos.x + localPos.z*localPos.z);
+                const inYRange = Math.abs(localPos.y) < halfHeight;
+
+                if (inYRange && inCylinderXZ > radius - 0.15 && inCylinderXZ < radius + 0.15) {
+                    // Відскок від бічної поверхні
+                    const radialDir = new THREE.Vector3(localPos.x, 0, localPos.z).normalize();
+                    const radialVel = vel.clone().dot(radialDir);
+                    if (radialVel > 0) { // рух назовні? ні, ми хочемо відбивати всередину
+                        // відбиваємо радіальну компоненту
+                        vel.addScaledVector(radialDir, -2 * radialVel * 0.5); // пом'якшення
+                    }
+                    // Трохи відштовхнути
+                    group.position.copy(gaugePos.clone().add(radialDir.multiplyScalar(radius + 0.2)));
+                }
+
+                // --- ЗБІР КРАПЛІ (через верх) ---
+                // Якщо крапля в межах радіуса верхнього отвору і проходить зверху вниз
+                const atTop = (localPos.y > halfHeight - 0.2 && localPos.y < halfHeight + 0.3);
+                const withinRadius = Math.sqrt(localPos.x*localPos.x + localPos.z*localPos.z) < radius - 0.1;
+                
+                if (atTop && withinRadius && vel.y < 0) {
+                    // Перевіримо, чи попереднє положення було вище
+                    const prevLocalY = drop.prevPos.y - gaugePos.y;
+                    if (prevLocalY > halfHeight) {
+                        // Зараховуємо збір
+                        if (gameActive) {
+                            collectedDrops++;
+                            updateUI();
+                            
+                            // Візуальний ефект: піднімаємо рівень води трохи
+                            const visualScale = Math.min(collectedDrops / 60, 1.0); // максимум 60 крапель = повна шкала
+                            water.scale.y = visualScale;
+                            water.position.y = -0.75 + (0.75 * visualScale);
+                        }
+                        
+                        // "Збираємо" краплю: перекидаємо нагору
+                        group.position.set(
+                            (Math.random() - 0.5) * 10,
+                            10 + Math.random() * 8,
+                            (Math.random() - 0.5) * 8
+                        );
+                        vel.set(
+                            (Math.random() - 0.5) * 0.8,
+                            -2.0 - Math.random() * 1.5,
+                            (Math.random() - 0.5) * 0.8
+                        );
+                        return; // наступна крапля
+                    }
+                }
+
+                // Якщо крапля впала надто низько - перезапустити
+                if (group.position.y < -6) {
+                    group.position.set(
+                        (Math.random() - 0.5) * 12,
+                        12 + Math.random() * 10,
+                        (Math.random() - 0.5) * 8
+                    );
+                    vel.set(
+                        (Math.random() - 0.5) * 0.8,
+                        -2.0 - Math.random() * 1.5,
+                        (Math.random() - 0.5) * 0.8
+                    );
+                }
             });
+
+            // Змусити камеру трохи стежити за дощоміром
+            if (handPos) {
+                const targetCamPos = new THREE.Vector3(handPos.x * 0.3, 1.5, 8);
+                camera.position.lerp(targetCamPos, 0.05);
+                camera.lookAt(gaugeGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0)));
+            } else {
+                camera.lookAt(gaugeGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0)));
+            }
 
             renderer.render(scene, camera);
         }
+
+        // Адаптація під розмір вікна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Додамо зірочки або хмари для фону (необов'язково)
+        function addStars() {
+            const starsGeo = new THREE.BufferGeometry();
+            const starsCount = 300;
+            const positions = new Float32Array(starsCount * 3);
+            for (let i = 0; i < starsCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 100;
+                positions[i+1] = (Math.random() - 0.5) * 50;
+                positions[i+2] = (Math.random() - 0.5) * 100 - 30;
+            }
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starsMat = new THREE.PointsMaterial({ color: 0x88aaff, size: 0.15 });
+            const stars = new THREE.Points(starsGeo, starsMat);
+            scene.add(stars);
+        }
+        addStars();
+
+        // Початкове приховання елементів (очікування старту)
+        // Але сцена буде просто фон
+        animate(); // запускаємо анімацію навіть до старту, але без активної гри
     </script>
 </body>
 </html>
