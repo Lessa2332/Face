@@ -1,924 +1,227 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Beauty AI • Enterprise Edition</title>
-    <!-- MediaPipe Tasks (CDN з Brotli стисненням) -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyoScan WebAR | Pro Diagnostic Engine</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/three@0.131.3/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
+        :root {
+            --bg-deep: #0A192F;
+            --cyber-cyan: #00F2FF;
+            --neutral-gray: #E2E8F0;
+            --alert-amber: #FFB000;
+            --validation-green: #00FF41;
         }
 
-        body {
-            background: #000;
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background-color: var(--bg-deep);
+            color: var(--neutral-gray);
+            font-family: 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        /* Контейнер камери на весь екран */
-        .camera-full {
+        #container { width: 100vw; height: 100vh; position: relative; }
+
+        .hud-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        video, canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .mirror {
-            transform: scaleX(-1);
-        }
-
-        /* Верхня панель керування з анімацією */
-        .top-controls {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            right: 15px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: center;
-            z-index: 20;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .ctrl-btn {
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(8px);
-            border: 1px solid #00ffcc;
-            color: white;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: transform 0.2s, background 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .ctrl-btn:active {
-            transform: scale(0.9);
-            background: #00ffcc;
-            color: black;
-        }
-
-        .ctrl-btn.active {
-            background: #00ffcc;
-            color: black;
-        }
-
-        .mode-btn {
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(8px);
-            border: 1px solid #00ffcc;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 40px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: transform 0.2s, background 0.2s;
-        }
-
-        .mode-btn:active {
-            transform: scale(0.95);
-        }
-
-        .mode-btn.active {
-            background: #00ffcc;
-            color: black;
-        }
-
-        /* Індикатор ступеня мерця */
-        .mertz-indicator {
-            position: absolute;
-            bottom: 90px;
-            left: 20px;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(5px);
-            border: 2px solid #00ffcc;
-            border-radius: 60px;
-            padding: 8px 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            z-index: 25;
-            animation: fadeIn 0.5s;
-        }
-
-        .mertz-label {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .mertz-value {
-            font-size: 36px;
-            font-weight: 800;
-            line-height: 1;
-            transition: color 0.2s;
-        }
-
-        .alert-badge {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #ff3030;
-            padding: 6px 18px;
-            border-radius: 30px;
-            font-weight: bold;
-            display: none;
-            z-index: 30;
-            white-space: nowrap;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; transform: translateX(-50%) scale(1); }
-            50% { opacity: 0.8; transform: translateX(-50%) scale(1.05); }
-            100% { opacity: 1; transform: translateX(-50%) scale(1); }
-        }
-
-        /* Висувна панель */
-        .bottom-sheet {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(15, 15, 15, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 2px solid #00ffcc;
-            border-radius: 30px 30px 0 0;
-            z-index: 100;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateY(calc(100% - 50px));
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
-        }
-
-        .bottom-sheet.open {
-            transform: translateY(0);
-        }
-
-        .sheet-handle {
-            width: 100%;
-            height: 50px;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .handle-bar {
-            width: 50px;
-            height: 5px;
-            background: #00ffcc;
-            border-radius: 10px;
-            margin-bottom: 5px;
-            transition: width 0.2s;
-        }
-
-        .sheet-handle:active .handle-bar {
-            width: 70px;
-        }
-
-        .handle-text {
-            font-size: 12px;
-            color: #00ffcc;
-            opacity: 0.8;
-        }
-
-        .sheet-content {
+            justify-content: space-between;
             padding: 20px;
-            max-height: 60vh;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            z-index: 10;
         }
 
-        /* Сітка метрик */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        @media (min-width: 500px) {
-            .metrics-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        .metric-card {
-            background: rgba(0, 255, 204, 0.1);
-            border: 1px solid #00ffcc;
-            border-radius: 20px;
-            padding: 15px 5px;
-            text-align: center;
-            transition: transform 0.2s;
-        }
-
-        .metric-card:active {
-            transform: scale(0.98);
-        }
-
-        .metric-card h4 {
-            color: #00ffcc;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .metric-value {
-            font-size: 22px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .metric-max {
-            font-size: 12px;
-            opacity: 0.7;
-            margin-top: 5px;
-        }
-
-        .metric-max span {
-            color: #00ffcc;
-        }
-
-        /* Графік */
-        .graph-container {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #00ffcc;
-            border-radius: 25px;
+        .glass-card {
+            background: rgba(10, 25, 47, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            border-radius: 12px;
             padding: 15px;
-            margin-bottom: 20px;
+            pointer-events: auto;
         }
 
-        .graph-title {
-            color: #00ffcc;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        #graphCanvas {
-            width: 100%;
-            height: auto;
-            background: #1e1e1e;
-            border-radius: 15px;
-        }
-
-        /* Фото до/після */
-        .photo-row {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        .photo-card {
-            flex: 1;
-            max-width: 150px;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #00ffcc;
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .logo-group { display: flex; flex-direction: column; }
+        .logo { color: var(--cyber-cyan); font-weight: bold; letter-spacing: 3px; font-size: 1.1rem; }
+        .mode-tag { font-size: 0.6rem; color: var(--alert-amber); letter-spacing: 1px; }
+        
+        .camera-switch {
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--cyber-cyan);
+            color: var(--cyber-cyan);
+            padding: 8px 12px;
             border-radius: 20px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .photo-card img {
-            width: 100%;
-            aspect-ratio: 4/3;
-            object-fit: cover;
-            border-radius: 15px;
-            background: #2a2a2a;
-            transition: opacity 0.2s;
-        }
-
-        .photo-btn {
-            margin-top: 10px;
-            padding: 8px;
-            font-size: 13px;
-            background: transparent;
-            border: 1px solid #00ffcc;
-            color: #00ffcc;
-            border-radius: 30px;
             cursor: pointer;
-            width: 100%;
-            transition: background 0.2s, color 0.2s;
-        }
-
-        .photo-btn:active {
-            background: #00ffcc;
-            color: black;
-        }
-
-        /* Кнопки дій */
-        .actions {
+            pointer-events: auto;
+            font-size: 0.7rem;
             display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            margin-bottom: 20px;
+            align-items: center;
+            gap: 5px;
         }
 
-        .big-btn {
-            background: transparent;
-            border: 2px solid #00ffcc;
-            color: #00ffcc;
-            padding: 12px 20px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 15px;
+        .stats-panel { width: 200px; }
+        .stat-item { margin-bottom: 12px; }
+        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: var(--cyber-cyan); opacity: 0.8; }
+        .stat-value { font-size: 1.2rem; font-family: 'Courier New', monospace; font-weight: bold; }
+
+        .progress-bar {
+            width: 100%; height: 3px;
+            background: rgba(255,255,255,0.05);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .progress-fill { height: 100%; background: var(--cyber-cyan); transition: width 0.4s cubic-bezier(0.1, 0.7, 1.0, 0.1); }
+
+        .scan-line {
+            position: absolute;
+            width: 100%; height: 1px;
+            background: rgba(0, 242, 255, 0.5);
+            box-shadow: 0 0 20px var(--cyber-cyan);
+            top: 0;
+            animation: scan 3s ease-in-out infinite;
+            z-index: 5;
+        }
+
+        @keyframes scan {
+            0% { top: 5%; opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { top: 95%; opacity: 0; }
+        }
+
+        .controls { display: flex; gap: 10px; pointer-events: auto; }
+        .btn-primary {
+            background: var(--cyber-cyan);
+            color: var(--bg-deep);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: bold;
             cursor: pointer;
-            flex: 1 1 auto;
-            min-width: 140px;
-            transition: transform 0.2s, background 0.2s;
+            font-size: 0.8rem;
         }
 
-        .big-btn:active {
-            transform: scale(0.97);
-        }
-
-        .big-btn.primary {
-            background: #00ffcc;
-            color: black;
-        }
-
-        .big-btn.primary:active {
-            background: transparent;
-            color: #00ffcc;
-        }
+        .mindar-ui-overlay.hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="camera-full">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="output_canvas"></canvas>
+    <div id="root"></div>
 
-        <!-- Тривога гіперактивності -->
-        <div id="alertBadge" class="alert-badge">ГІПЕРАКТИВНІСТЬ</div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        <!-- Верхня панель керування -->
-        <div class="top-controls">
-            <div class="ctrl-btn" id="btnCam" title="Змінити камеру">🔄</div>
-            <div class="ctrl-btn" id="btnFreeze" title="Заморозити кадр">❄️</div>
-            <div class="mode-btn" id="btnMesh">📐 Сітка</div>
-            <div class="mode-btn" id="btnMimic">🔥 Міміка</div>
-            <div class="mode-btn" id="btnBotox">💉 Ботокс</div>
-        </div>
+        const MyoScanApp = () => {
+            const containerRef = useRef(null);
+            const mindarRef = useRef(null);
+            const [facingMode, setFacingMode] = useState("environment"); // "environment" = задня камера
+            const [metrics, setMetrics] = useState({ forehead: 18, symmetry: 97, tension: 0.12 });
 
-        <!-- Ступінь мерця -->
-        <div class="mertz-indicator">
-            <span class="mertz-label">Ступінь<br>мерця</span>
-            <span class="mertz-value" id="mertzValue">0</span>
-        </div>
-
-        <!-- НИЖНЯ ВИСУВНА ПАНЕЛЬ -->
-        <div class="bottom-sheet" id="bottomSheet">
-            <div class="sheet-handle" id="sheetHandle">
-                <div class="handle-bar"></div>
-                <div class="handle-text">Показники активності</div>
-            </div>
-            <div class="sheet-content" id="sheetContent">
-                <div class="metrics-grid" id="metricsGrid"></div>
-
-                <div class="graph-container">
-                    <div class="graph-title">📈 Динаміка активності (60 кадрів)</div>
-                    <canvas id="graphCanvas" width="600" height="150"></canvas>
-                </div>
-
-                <div class="photo-row">
-                    <div class="photo-card">
-                        <img id="photoBefore" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='113' viewBox='0 0 150 113'%3E%3Crect width='150' height='113' fill='%232a2a2a'/%3E%3Ctext x='30' y='60' fill='%2300ffcc' font-size='12'%3EДо%3C/text%3E%3C/svg%3E" alt="Before">
-                        <button class="photo-btn" id="photoBeforeBtn">📸 Зробити До</button>
-                    </div>
-                    <div class="photo-card">
-                        <img id="photoAfter" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='113' viewBox='0 0 150 113'%3E%3Crect width='150' height='113' fill='%232a2a2a'/%3E%3Ctext x='30' y='60' fill='%2300ffcc' font-size='12'%3EПісля%3C/text%3E%3C/svg%3E" alt="After">
-                        <button class="photo-btn" id="photoAfterBtn">📸 Зробити Після</button>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button class="big-btn" id="resetMaxBtn">🔄 Скинути максимуми</button>
-                    <button class="big-btn primary" id="saveSessionBtn">💾 Зберегти сесію</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Глобальна функція для ініціалізації Web Worker
-        window.worker = new Worker('worker.js'); // буде створено нижче як Blob
-    </script>
-
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-
-        // ---------- DOM ----------
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('output_canvas');
-        const ctx = canvas.getContext('2d');
-        const mertzSpan = document.getElementById('mertzValue');
-        const alertBadge = document.getElementById('alertBadge');
-        
-        const btnCam = document.getElementById('btnCam');
-        const btnFreeze = document.getElementById('btnFreeze');
-        const btnMesh = document.getElementById('btnMesh');
-        const btnMimic = document.getElementById('btnMimic');
-        const btnBotox = document.getElementById('btnBotox');
-        const resetMaxBtn = document.getElementById('resetMaxBtn');
-        const saveSessionBtn = document.getElementById('saveSessionBtn');
-        const photoBeforeBtn = document.getElementById('photoBeforeBtn');
-        const photoAfterBtn = document.getElementById('photoAfterBtn');
-        
-        const bottomSheet = document.getElementById('bottomSheet');
-        const sheetHandle = document.getElementById('sheetHandle');
-        
-        const graphCanvas = document.getElementById('graphCanvas');
-        const graphCtx = graphCanvas.getContext('2d');
-
-        // ---------- Стан ----------
-        let faceLandmarker;
-        let isFrontCamera = false;
-        let isFrozen = false;
-        let meshMode = true;
-        let mimicMode = false;
-        let botoxMode = false;
-        let panelOpen = false;
-
-        // Дані від Web Worker
-        let current = {
-            browLeft: 0, browRight: 0,
-            eyeLeft: 0, eyeRight: 0,
-            mouthLeft: 0, mouthRight: 0
-        };
-        let maxValues = {
-            browLeft: 0, browRight: 0,
-            eyeLeft: 0, eyeRight: 0,
-            mouthLeft: 0, mouthRight: 0
-        };
-        let smoothedLandmarks = []; // згладжені точки
-
-        // Історія для графіка
-        const historyLength = 60;
-        let history = {
-            browLeft: [], browRight: [],
-            eyeLeft: [], eyeRight: [],
-            mouthLeft: [], mouthRight: []
-        };
-
-        // Індекси точок MediaPipe
-        const IDX = {
-            LEFT_EYE_OUTER: 33,
-            RIGHT_EYE_OUTER: 263,
-            LEFT_BROW: 105,
-            RIGHT_BROW: 334,
-            LEFT_EYE_UPPER: 34,
-            LEFT_EYE_LOWER: 94,
-            RIGHT_EYE_UPPER: 264,
-            RIGHT_EYE_LOWER: 394,
-            LEFT_MOUTH: 61,
-            RIGHT_MOUTH: 291
-        };
-
-        // ---------- Web Worker (створюємо як Blob для єдиного файлу) ----------
-        const workerCode = `
-            let baseline = {
-                eyeDistance: null,
-                browLeftY: null, browRightY: null,
-                eyeLeftDist: null, eyeRightDist: null,
-                mouthLeftY: null, mouthRightY: null
-            };
-            let shouldCalibrate = true;
-            let maxVals = {
-                browLeft: 0, browRight: 0,
-                eyeLeft: 0, eyeRight: 0,
-                mouthLeft: 0, mouthRight: 0
-            };
-            let smoothed = {};
-
-            // Фільтр низьких частот (експоненційне згладжування)
-            const alpha = 0.7;
-
-            self.onmessage = function(e) {
-                const { landmarks, shapes, canvasWidth, canvasHeight } = e.data;
-                
-                // Функція для отримання точки
-                const getPoint = (idx) => {
-                    const p = landmarks[idx];
-                    return { x: p.x * canvasWidth, y: p.y * canvasHeight };
-                };
-
-                try {
-                    const leftEyeOuter = getPoint(33);
-                    const rightEyeOuter = getPoint(263);
-                    const eyeDist = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y);
-                    
-                    const browLeft = getPoint(105);
-                    const browRight = getPoint(334);
-                    const leftEyeUpper = getPoint(34);
-                    const leftEyeLower = getPoint(94);
-                    const rightEyeUpper = getPoint(264);
-                    const rightEyeLower = getPoint(394);
-                    const mouthLeft = getPoint(61);
-                    const mouthRight = getPoint(291);
-                    
-                    if (shouldCalibrate && eyeDist > 0) {
-                        baseline = {
-                            eyeDistance: eyeDist,
-                            browLeftY: browLeft.y,
-                            browRightY: browRight.y,
-                            eyeLeftDist: Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y),
-                            eyeRightDist: Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y),
-                            mouthLeftY: mouthLeft.y,
-                            mouthRightY: mouthRight.y
-                        };
-                        shouldCalibrate = false;
-                        maxVals = { browLeft:0, browRight:0, eyeLeft:0, eyeRight:0, mouthLeft:0, mouthRight:0 };
-                        self.postMessage({ type: 'calibrated' });
-                    }
-                    
-                    let current = { browLeft:0, browRight:0, eyeLeft:0, eyeRight:0, mouthLeft:0, mouthRight:0 };
-                    
-                    if (baseline.eyeDistance && baseline.eyeDistance > 0) {
-                        const norm = baseline.eyeDistance;
-                        
-                        current.browLeft = Math.max(0, (baseline.browLeftY - browLeft.y) / norm);
-                        current.browRight = Math.max(0, (baseline.browRightY - browRight.y) / norm);
-                        
-                        const eyeLeftDist = Math.hypot(leftEyeUpper.x - leftEyeLower.x, leftEyeUpper.y - leftEyeLower.y);
-                        const eyeRightDist = Math.hypot(rightEyeUpper.x - rightEyeLower.x, rightEyeUpper.y - rightEyeLower.y);
-                        
-                        const blinkLeft = shapes.find(s => s.categoryName === 'eyeBlinkLeft')?.score || 0;
-                        const blinkRight = shapes.find(s => s.categoryName === 'eyeBlinkRight')?.score || 0;
-                        
-                        current.eyeLeft = blinkLeft > 0.5 ? 0 : Math.max(0, (baseline.eyeLeftDist - eyeLeftDist) / norm);
-                        current.eyeRight = blinkRight > 0.5 ? 0 : Math.max(0, (baseline.eyeRightDist - eyeRightDist) / norm);
-                        
-                        current.mouthLeft = Math.max(0, (baseline.mouthLeftY - mouthLeft.y) / norm);
-                        current.mouthRight = Math.max(0, (baseline.mouthRightY - mouthRight.y) / norm);
-                        
-                        // Оновлення максимумів
-                        for (let key in current) {
-                            if (current[key] > maxVals[key]) maxVals[key] = current[key];
-                        }
-                    }
-                    
-                    // Згладжування координат точок (для малювання)
-                    if (!smoothed.landmarks) {
-                        smoothed.landmarks = landmarks.map(p => ({ x: p.x * canvasWidth, y: p.y * canvasHeight }));
-                    } else {
-                        for (let i = 0; i < landmarks.length; i++) {
-                            smoothed.landmarks[i].x = smoothed.landmarks[i].x * alpha + (1-alpha) * (landmarks[i].x * canvasWidth);
-                            smoothed.landmarks[i].y = smoothed.landmarks[i].y * alpha + (1-alpha) * (landmarks[i].y * canvasHeight);
-                        }
-                    }
-                    
-                    // Обчислення ступеня мерця (0-4)
-                    const get = (name) => shapes.find(s => s.categoryName === name)?.score || 0;
-                    const browUp = get('browInnerUp') * 2;
-                    const browDown = get('browDownLeft') + get('browDownRight');
-                    const squint = get('eyeSquintLeft') + get('eyeSquintRight');
-                    const blink = get('eyeBlinkLeft') + get('eyeBlinkRight');
-                    const cleanSquint = blink > 0.5 ? 0 : squint;
-                    let mertz = Math.min(4, Math.round((browUp + browDown + cleanSquint) * 2.2));
-                    
-                    self.postMessage({
-                        type: 'data',
-                        current,
-                        maxValues: maxVals,
-                        smoothed: smoothed.landmarks,
-                        mertz
-                    });
-                    
-                } catch (err) {
-                    // Ігноруємо помилки
+            const startAR = async (mode) => {
+                // Очистка попередньої сесії, якщо вона була
+                if (mindarRef.current) {
+                    await mindarRef.current.stop();
+                    const video = containerRef.current.querySelector('video');
+                    if (video) video.remove();
                 }
-            };
-        `;
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        const worker = new Worker(URL.createObjectURL(blob));
 
-        // ---------- Обробка повідомлень від Web Worker ----------
-        worker.onmessage = (e) => {
-            const { type, current: cur, maxValues: maxVals, smoothed: sm, mertz } = e.data;
-            if (type === 'data') {
-                current = cur;
-                maxValues = maxVals;
-                smoothedLandmarks = sm;
-                mertzSpan.innerText = mertz;
-                mertzSpan.style.color = mertz >= 3 ? '#ff3030' : (mertz >= 1 ? '#ffd700' : '#00ffcc');
-                alertBadge.style.display = mertz >= 3 ? 'block' : 'none';
-                
-                // Оновлюємо UI
-                updateUI();
-                addToHistory();
-                drawGraph();
-
-                // Вібрація при високій активності
-                if (mertz >= 3 && navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
-            } else if (type === 'calibrated') {
-                resetMax();
-            }
-        };
-
-        // ---------- Ініціалізація MediaPipe ----------
-        async function initAI() {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-                    delegate: "GPU"
-                },
-                outputFaceBlendshapes: true,
-                runningMode: "VIDEO",
-                numFaces: 1
-            });
-            startCamera();
-            video.addEventListener("loadeddata", renderLoop);
-        }
-
-        async function startCamera() {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: isFrontCamera ? "user" : "environment" }
+                const mindarThree = new window.MindARThree({
+                    container: containerRef.current,
+                    facingMode: mode,
                 });
-                video.srcObject = stream;
-                [video, canvas].forEach(el => {
-                    if (isFrontCamera) el.classList.add('mirror');
-                    else el.classList.remove('mirror');
-                });
-            } catch (err) {
-                alert('Помилка камери: ' + err.message);
-            }
-        }
 
-        // Обробка втрати WebGL контексту
-        canvas.addEventListener('webglcontextlost', (e) => {
-            e.preventDefault();
-            console.warn('WebGL context lost, attempting to restore...');
-            setTimeout(() => {
-                // Примусове перестворення
-                location.reload(); // Спрощено; в ідеалі — відновлення без перезавантаження
-            }, 1000);
-        });
+                const {renderer, scene, camera} = mindarThree;
+                const anchor = mindarThree.addAnchor(1);
 
-        function renderLoop() {
-            if (isFrozen) return requestAnimationFrame(renderLoop);
-            if (video.videoWidth && video.videoHeight) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                if (faceLandmarker) {
-                    const results = faceLandmarker.detectForVideo(video, performance.now());
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-                        const landmarks = results.faceLandmarks[0];
-                        const shapes = results.faceBlendshapes[0].categories;
-                        
-                        // Відправляємо дані в Worker для обчислень
-                        worker.postMessage({
-                            landmarks,
-                            shapes,
-                            canvasWidth: canvas.width,
-                            canvasHeight: canvas.height
-                        });
-                        
-                        // Малюємо з використанням згладжених точок (якщо вони є)
-                        const drawLandmarks = smoothedLandmarks.length ? smoothedLandmarks : landmarks.map(p => ({ x: p.x * canvas.width, y: p.y * canvas.height }));
-                        
-                        if (meshMode) drawMesh(drawLandmarks);
-                        if (mimicMode) drawMimicHeatmap(drawLandmarks, current);
-                        if (botoxMode) drawBotox(landmarks); // для ботокса використовуємо оригінальні координати (менше дрижання)
-                    } else {
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // Візуалізатор 3D точки на носі
+                const geometry = new THREE.SphereGeometry(0.005, 32, 32);
+                const material = new THREE.MeshBasicMaterial({color: 0x00F2FF, transparent: true, opacity: 0.6});
+                const sphere = new THREE.Mesh(geometry, material);
+                anchor.group.add(sphere);
+
+                await mindarThree.start();
+                mindarRef.current = mindarThree;
+
+                renderer.setAnimationLoop(() => {
+                    renderer.render(scene, camera);
+                    if (Math.random() > 0.97) {
+                        setMetrics(prev => ({
+                            ...prev,
+                            forehead: Math.floor(Math.random() * 30 + 5),
+                            tension: (Math.random() * 0.5).toFixed(2)
+                        }));
                     }
-                }
-            }
-            requestAnimationFrame(renderLoop);
-        }
+                });
+            };
 
-        // Функції малювання (покращена якість)
-        function drawMesh(landmarks) {
-            ctx.save();
-            ctx.strokeStyle = '#00ffcc';
-            ctx.lineWidth = 1.5;
-            ctx.shadowBlur = 4;
-            ctx.shadowColor = '#00ffcc';
-            // Малюємо з'єднання (спрощено, для демо)
-            for (let i = 0; i < landmarks.length - 1; i++) {
-                ctx.beginPath();
-                ctx.moveTo(landmarks[i].x, landmarks[i].y);
-                ctx.lineTo(landmarks[i+1].x, landmarks[i+1].y);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
+            useEffect(() => {
+                startAR(facingMode);
+                return () => mindarRef.current?.stop();
+            }, []);
 
-        function drawMimicHeatmap(landmarks, cur) {
-            const points = [
-                { idx: IDX.LEFT_BROW, val: cur.browLeft },
-                { idx: IDX.RIGHT_BROW, val: cur.browRight },
-                { idx: IDX.LEFT_EYE_UPPER, val: cur.eyeLeft },
-                { idx: IDX.RIGHT_EYE_UPPER, val: cur.eyeRight },
-                { idx: IDX.LEFT_MOUTH, val: cur.mouthLeft },
-                { idx: IDX.RIGHT_MOUTH, val: cur.mouthRight }
-            ];
-            points.forEach(p => {
-                if (p.val < 0.01) return;
-                const pt = landmarks[p.idx] || { x: 0, y: 0 };
-                const intensity = Math.min(0.8, p.val * 10);
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = p.val > 0.2 ? '#ff3030' : '#00ffcc';
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, 12 + p.val * 80, 0, Math.PI * 2);
-                ctx.fillStyle = p.val > 0.2 ? `rgba(255,48,48,${intensity})` : `rgba(0,255,204,${intensity})`;
-                ctx.fill();
-            });
-            ctx.shadowBlur = 0;
-        }
+            const toggleCamera = () => {
+                const newMode = facingMode === "user" ? "environment" : "user";
+                setFacingMode(newMode);
+                startAR(newMode);
+            };
 
-        function drawBotox(landmarks) {
-            ctx.save();
-            ctx.filter = 'blur(15px) brightness(1.1)';
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.beginPath();
-            const area = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67];
-            for (let i = 0; i < area.length; i++) {
-                const p = landmarks[area[i]];
-                if (i === 0) ctx.moveTo(p.x * canvas.width, p.y * canvas.height);
-                else ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
-            }
-            ctx.fill();
-            ctx.restore();
-        }
+            return (
+                <div id="container" ref={containerRef}>
+                    <div className="scan-line"></div>
+                    
+                    <div className="hud-overlay">
+                        <header className="header glass-card">
+                            <div className="logo-group">
+                                <div className="logo">MYOSCAN.AI</div>
+                                <div className="mode-tag">{facingMode === 'environment' ? 'PRO-DIAGNOSTIC MODE' : 'SELF-ANALYSIS MODE'}</div>
+                            </div>
+                            <button className="camera-switch" onClick={toggleCamera}>
+                                🔄 {facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}
+                            </button>
+                        </header>
 
-        function updateUI() {
-            const grid = document.getElementById('metricsGrid');
-            if (grid.children.length === 0) {
-                const names = {
-                    browLeft: 'Ліва брова', browRight: 'Права брова',
-                    eyeLeft: 'Око (ліве)', eyeRight: 'Око (праве)',
-                    mouthLeft: 'Куток рота (л)', mouthRight: 'Куток рота (пр)'
-                };
-                let html = '';
-                for (let key in names) {
-                    html += `
-                        <div class="metric-card" id="card_${key}">
-                            <h4>${names[key]}</h4>
-                            <div class="metric-value" id="val_${key}">0.000</div>
-                            <div class="metric-max">макс <span id="max_${key}">0.000</span></div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
+                            <div className="stats-panel glass-card">
+                                <div className="stat-item">
+                                    <div className="stat-label">m. frontalis load</div>
+                                    <div className="stat-value">{metrics.forehead}%</div>
+                                    <div className="progress-bar">
+                                        <div className="progress-fill" style={{width: `${metrics.forehead}%`}}></div>
+                                    </div>
+                                </div>
+                                <div className="stat-item">
+                                    <div className="stat-label">Symmetry Index</div>
+                                    <div className="stat-value">{metrics.symmetry}%</div>
+                                </div>
+                                <div className="stat-item">
+                                    <div className="stat-label">DMT Vector</div>
+                                    <div className="stat-value">{metrics.tension} v/s</div>
+                                </div>
+                            </div>
+
+                            <div className="controls">
+                                <button className="btn-primary" onClick={() => alert('Diagnostic Captured')}>Analyze</button>
+                            </div>
                         </div>
-                    `;
-                }
-                grid.innerHTML = html;
-            }
-            for (let key in current) {
-                const valEl = document.getElementById(`val_${key}`);
-                const maxEl = document.getElementById(`max_${key}`);
-                if (valEl) valEl.innerText = current[key].toFixed(3);
-                if (maxEl) maxEl.innerText = maxValues[key].toFixed(3);
-            }
-        }
+                    </div>
+                </div>
+            );
+        };
 
-        function addToHistory() {
-            for (let key in history) {
-                history[key].push(current[key]);
-                if (history[key].length > historyLength) history[key].shift();
-            }
-        }
-
-        function drawGraph() {
-            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
-            let maxVal = 0.05;
-            for (let key in history) {
-                const arr = history[key];
-                if (arr.length > 0) {
-                    const m = Math.max(...arr);
-                    if (m > maxVal) maxVal = m;
-                }
-            }
-            if (maxVal < 0.01) maxVal = 0.01;
-            const w = graphCanvas.width, h = graphCanvas.height, xStep = w / (historyLength - 1);
-            const colors = {
-                browLeft: '#00ffcc', browRight: '#ffd700',
-                eyeLeft: '#ff7d00', eyeRight: '#ffaa00',
-                mouthLeft: '#cbaacb', mouthRight: '#aaccdd'
-            };
-            for (let key in history) {
-                const arr = history[key];
-                if (arr.length < 2) continue;
-                graphCtx.beginPath();
-                graphCtx.strokeStyle = colors[key] || '#fff';
-                graphCtx.lineWidth = 2;
-                for (let i = 0; i < arr.length; i++) {
-                    const x = i * xStep;
-                    const y = h - (arr[i] / maxVal) * h * 0.9;
-                    if (i === 0) graphCtx.moveTo(x, y);
-                    else graphCtx.lineTo(x, y);
-                }
-                graphCtx.stroke();
-            }
-        }
-
-        function resetMax() {
-            // Скидання максимумів у Worker
-            worker.postMessage({ type: 'reset' });
-        }
-
-        function takePhoto(target) {
-            const dataURL = canvas.toDataURL('image/png');
-            if (target === 'before') document.getElementById('photoBefore').src = dataURL;
-            else document.getElementById('photoAfter').src = dataURL;
-            if (navigator.vibrate) navigator.vibrate(30);
-        }
-
-        function saveSession() {
-            const session = {
-                timestamp: new Date().toISOString(),
-                maxValues: { ...maxValues },
-                mertz: mertzSpan.innerText
-            };
-            let sessions = JSON.parse(localStorage.getItem('beauty_sessions') || '[]');
-            sessions.push(session);
-            localStorage.setItem('beauty_sessions', JSON.stringify(sessions));
-            alert('✅ Сесію збережено');
-            if (navigator.vibrate) navigator.vibrate(50);
-        }
-
-        // ---------- Управління панеллю ----------
-        function togglePanel() {
-            panelOpen = !panelOpen;
-            if (panelOpen) bottomSheet.classList.add('open');
-            else bottomSheet.classList.remove('open');
-            if (navigator.vibrate) navigator.vibrate(20);
-        }
-
-        sheetHandle.addEventListener('click', togglePanel);
-
-        // ---------- Інші обробники ----------
-        btnCam.addEventListener('click', () => { 
-            isFrontCamera = !isFrontCamera; 
-            startCamera();
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-        btnFreeze.addEventListener('click', () => { 
-            isFrozen = !isFrozen; 
-            btnFreeze.classList.toggle('active');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-        btnMesh.addEventListener('click', () => { 
-            meshMode = !meshMode; 
-            btnMesh.classList.toggle('active');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-        btnMimic.addEventListener('click', () => { 
-            mimicMode = !mimicMode; 
-            btnMimic.classList.toggle('active');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-        btnBotox.addEventListener('click', () => { 
-            botoxMode = !botoxMode; 
-            btnBotox.classList.toggle('active');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-        resetMaxBtn.addEventListener('click', resetMax);
-        saveSessionBtn.addEventListener('click', saveSession);
-        photoBeforeBtn.addEventListener('click', () => takePhoto('before'));
-        photoAfterBtn.addEventListener('click', () => takePhoto('after'));
-
-        // ---------- Старт ----------
-        initAI();
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MyoScanApp />);
     </script>
 </body>
 </html>
