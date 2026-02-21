@@ -1,227 +1,121 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyoScan WebAR | Pro Diagnostic Engine</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/three@0.131.3/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-face-three.prod.js"></script>
-
+    <title>AR Weather: Master of Rain</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root {
-            --bg-deep: #0A192F;
-            --cyber-cyan: #00F2FF;
-            --neutral-gray: #E2E8F0;
-            --alert-amber: #FFB000;
-            --validation-green: #00FF41;
-        }
-
-        body, html {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            background-color: var(--bg-deep);
-            color: var(--neutral-gray);
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-        }
-
-        #container { width: 100vw; height: 100vh; position: relative; }
-
-        .hud-overlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 10;
-        }
-
-        .glass-card {
-            background: rgba(10, 25, 47, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 242, 255, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            pointer-events: auto;
-        }
-
-        .header { display: flex; justify-content: space-between; align-items: center; }
-        .logo-group { display: flex; flex-direction: column; }
-        .logo { color: var(--cyber-cyan); font-weight: bold; letter-spacing: 3px; font-size: 1.1rem; }
-        .mode-tag { font-size: 0.6rem; color: var(--alert-amber); letter-spacing: 1px; }
-        
-        .camera-switch {
-            background: rgba(0, 242, 255, 0.1);
-            border: 1px solid var(--cyber-cyan);
-            color: var(--cyber-cyan);
-            padding: 8px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            pointer-events: auto;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .stats-panel { width: 200px; }
-        .stat-item { margin-bottom: 12px; }
-        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: var(--cyber-cyan); opacity: 0.8; }
-        .stat-value { font-size: 1.2rem; font-family: 'Courier New', monospace; font-weight: bold; }
-
-        .progress-bar {
-            width: 100%; height: 3px;
-            background: rgba(255,255,255,0.05);
-            margin-top: 6px;
-            overflow: hidden;
-        }
-        .progress-fill { height: 100%; background: var(--cyber-cyan); transition: width 0.4s cubic-bezier(0.1, 0.7, 1.0, 0.1); }
-
-        .scan-line {
-            position: absolute;
-            width: 100%; height: 1px;
-            background: rgba(0, 242, 255, 0.5);
-            box-shadow: 0 0 20px var(--cyber-cyan);
-            top: 0;
-            animation: scan 3s ease-in-out infinite;
-            z-index: 5;
-        }
-
-        @keyframes scan {
-            0% { top: 5%; opacity: 0; }
-            50% { opacity: 0.5; }
-            100% { top: 95%; opacity: 0; }
-        }
-
-        .controls { display: flex; gap: 10px; pointer-events: auto; }
-        .btn-primary {
-            background: var(--cyber-cyan);
-            color: var(--bg-deep);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        .mindar-ui-overlay.hidden { display: none; }
+        body { margin: 0; background: #0f0f0f; overflow: hidden; font-family: 'Cormorant Garamond', serif; }
+        #ui-layer { position: absolute; top: 20px; left: 20px; color: #d4a373; pointer-events: none; z-index: 10; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="ui-layer">
+        <h1 style="letter-spacing: 3px;">ЕЛЕМЕНТАЛЬ: ДОЩ</h1>
+        <p id="status">Очікування мага...</p>
+    </div>
+    <video id="input_video" style="display:none"></video>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-        const MyoScanApp = () => {
-            const containerRef = useRef(null);
-            const mindarRef = useRef(null);
-            const [facingMode, setFacingMode] = useState("environment"); // "environment" = задня камера
-            const [metrics, setMetrics] = useState({ forehead: 18, symmetry: 97, tension: 0.12 });
+        // --- Налаштування часток ---
+        const rainCount = 2000;
+        const rainGeo = new THREE.BufferGeometry();
+        const rainPos = new Float32Array(rainCount * 3);
+        const rainSpeeds = new Float32Array(rainCount); // Індивідуальна швидкість
 
-            const startAR = async (mode) => {
-                // Очистка попередньої сесії, якщо вона була
-                if (mindarRef.current) {
-                    await mindarRef.current.stop();
-                    const video = containerRef.current.querySelector('video');
-                    if (video) video.remove();
+        for(let i=0; i<rainCount; i++) {
+            rainPos[i*3] = (Math.random() - 0.5) * 12;
+            rainPos[i*3+1] = Math.random() * 10; // Зона 1: Початок (хмара)
+            rainPos[i*3+2] = (Math.random() - 0.5) * 5;
+            rainSpeeds[i] = 0.05 + Math.random() * 0.15; // Різна швидкість крапель
+        }
+
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+        const rainMat = new THREE.PointsMaterial({ 
+            color: 0xd4a373, 
+            size: 0.025, 
+            transparent: true, 
+            opacity: 0 // Початково невидимий
+        });
+        const rainPoints = new THREE.Points(rainGeo, rainMat);
+        scene.add(rainPoints);
+
+        camera.position.z = 5;
+
+        let handPos = null;
+
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+        
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const lm = results.multiHandLandmarks[0][9];
+                handPos = { x: (lm.x - 0.5) * 12, y: -(lm.y - 0.5) * 10, z: 0 };
+                document.getElementById('status').innerText = "Магія активна";
+            } else {
+                handPos = null;
+                document.getElementById('status').innerText = "Піднесіть руку для виклику дощу";
+            }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const pos = rainGeo.attributes.position.array;
+
+            // Логіка появи: дощ видимий тільки коли є рука
+            if (handPos) {
+                rainMat.opacity = Math.min(0.7, rainMat.opacity + 0.02);
+            } else {
+                rainMat.opacity = Math.max(0, rainMat.opacity - 0.02);
+            }
+
+            for (let i = 0; i < rainCount; i++) {
+                let idx = i * 3;
+                
+                // ЗОНА 1: ПАДІННЯ (ВІД ХМАРИ)
+                pos[idx + 1] -= rainSpeeds[i]; 
+
+                // ЗОНА 2: ВЗАЄМОДІЯ (РУКА)
+                if (handPos) {
+                    // Перевіряємо близькість до долоні
+                    let dx = pos[idx] - handPos.x;
+                    let dy = pos[idx + 1] - handPos.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+
+                    if (dist < 0.8) { 
+                        // Крапля "розбивається" об руку
+                        pos[idx + 1] += 0.4; // Відскок вгору
+                        pos[idx] += (Math.random() - 0.5) * 1.5; // Бризк в сторони
+                    }
                 }
 
-                const mindarThree = new window.MindARThree({
-                    container: containerRef.current,
-                    facingMode: mode,
-                });
+                // ЗОНА 3: ЗЕМЛЯ (МЕЖА)
+                // Якщо крапля впала нижче умовної підлоги
+                if (pos[idx + 1] < -4) {
+                    pos[idx + 1] = 6; // Повернення в "хмару" на висоту
+                    pos[idx] = (Math.random() - 0.5) * 12; // Нове місце появи
+                }
+            }
+            
+            rainGeo.attributes.position.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
 
-                const {renderer, scene, camera} = mindarThree;
-                const anchor = mindarThree.addAnchor(1);
-
-                // Візуалізатор 3D точки на носі
-                const geometry = new THREE.SphereGeometry(0.005, 32, 32);
-                const material = new THREE.MeshBasicMaterial({color: 0x00F2FF, transparent: true, opacity: 0.6});
-                const sphere = new THREE.Mesh(geometry, material);
-                anchor.group.add(sphere);
-
-                await mindarThree.start();
-                mindarRef.current = mindarThree;
-
-                renderer.setAnimationLoop(() => {
-                    renderer.render(scene, camera);
-                    if (Math.random() > 0.97) {
-                        setMetrics(prev => ({
-                            ...prev,
-                            forehead: Math.floor(Math.random() * 30 + 5),
-                            tension: (Math.random() * 0.5).toFixed(2)
-                        }));
-                    }
-                });
-            };
-
-            useEffect(() => {
-                startAR(facingMode);
-                return () => mindarRef.current?.stop();
-            }, []);
-
-            const toggleCamera = () => {
-                const newMode = facingMode === "user" ? "environment" : "user";
-                setFacingMode(newMode);
-                startAR(newMode);
-            };
-
-            return (
-                <div id="container" ref={containerRef}>
-                    <div className="scan-line"></div>
-                    
-                    <div className="hud-overlay">
-                        <header className="header glass-card">
-                            <div className="logo-group">
-                                <div className="logo">MYOSCAN.AI</div>
-                                <div className="mode-tag">{facingMode === 'environment' ? 'PRO-DIAGNOSTIC MODE' : 'SELF-ANALYSIS MODE'}</div>
-                            </div>
-                            <button className="camera-switch" onClick={toggleCamera}>
-                                🔄 {facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}
-                            </button>
-                        </header>
-
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
-                            <div className="stats-panel glass-card">
-                                <div className="stat-item">
-                                    <div className="stat-label">m. frontalis load</div>
-                                    <div className="stat-value">{metrics.forehead}%</div>
-                                    <div className="progress-bar">
-                                        <div className="progress-fill" style={{width: `${metrics.forehead}%`}}></div>
-                                    </div>
-                                </div>
-                                <div className="stat-item">
-                                    <div className="stat-label">Symmetry Index</div>
-                                    <div className="stat-value">{metrics.symmetry}%</div>
-                                </div>
-                                <div className="stat-item">
-                                    <div className="stat-label">DMT Vector</div>
-                                    <div className="stat-value">{metrics.tension} v/s</div>
-                                </div>
-                            </div>
-
-                            <div className="controls">
-                                <button className="btn-primary" onClick={() => alert('Diagnostic Captured')}>Analyze</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<MyoScanApp />);
+        const videoElement = document.getElementById('input_video');
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 1280, height: 720
+        });
+        cameraUtils.start();
+        animate();
     </script>
 </body>
 </html>
